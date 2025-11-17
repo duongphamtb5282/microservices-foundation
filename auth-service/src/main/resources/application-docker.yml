@@ -1,0 +1,176 @@
+# Auth Service Configuration - Docker Environment
+# This profile is for running the service in Docker containers with all infrastructure services
+
+# ==============================================================================
+# INFRASTRUCTURE CONFIGURATION FOR DOCKER
+# ==============================================================================
+
+# Database Configuration - Docker PostgreSQL
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/auth_service
+    username: auth_user
+    password: auth_password
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+
+  # Redis Configuration - Docker Redis
+  data:
+    redis:
+      host: redis
+      port: 6379
+      database: 0
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 5000ms
+
+  # Kafka Configuration - Docker Kafka
+  kafka:
+    bootstrap-servers: kafka:29092
+    consumer:
+      group-id: auth-service-docker
+      auto-offset-reset: earliest
+      properties:
+        spring.json.trusted.packages: "*"
+    producer:
+      acks: all
+      retries: 0
+
+# Kafka Wrapper Configuration
+kafka:
+  enabled: true
+  retry:
+    maxAttempts: 3
+    initial-backoff: 1s
+    max-backoff: 5m
+  cqrs:
+    enabled: true
+    command-topic: auth-commands
+    event-topic: auth-events
+
+# Cache Configuration
+cache:
+  enabled: true
+
+# Database Features
+database:
+  enabled: true
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  enable-health-checks: true
+  enable-metrics: true
+
+# ==============================================================================
+# AUTH SERVICE CONFIGURATION FOR DOCKER
+# ==============================================================================
+
+auth-service:
+  security:
+    authentication:
+      mode: database  # Database authentication for testing
+      database:
+        enabled: true
+        password-encoder: bcrypt
+        lockout:
+          enabled: true
+          max-attempts: 5
+          lock-duration: 30m
+      jwt:
+        enabled: true  # Enable JWT for database auth
+      keycloak:
+        enabled: false  # Disable Keycloak for database testing
+        server-url: http://keycloak:8080
+        realm: auth-service
+        client-id: auth-service-client
+        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        ssl-required: none
+        public-client: false
+        verify-token-audience: true
+        issuer-uri: http://keycloak:8080/realms/auth-service
+        jwk-set-uri: http://keycloak:8080/realms/auth-service/protocol/openid-connect/certs
+
+    cors:
+      enabled: true
+      allowed-origins: ["http://localhost:3000", "http://localhost:8080", "http://localhost:8082"]
+      allowed-methods: ["*"]
+      allowed-headers: ["*"]
+      allow-credentials: true
+
+    cache:
+      enabled: true
+      default-ttl: 5m
+      max-size: 1000
+
+    monitoring:
+      enabled: true
+      audit-logging: true
+
+# JWT Configuration (for backward compatibility)
+jwt:
+  access-token-ttl: 1h
+  refresh-token-ttl: 7d
+  secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+  issuer: ${JWT_ISSUER:auth-service}
+  audience: ${JWT_AUDIENCE:microservices}
+
+# Auth Cache Configuration
+auth-cache:
+  user-ttl: 5m
+  token-ttl: 15m
+  role-ttl: 1h
+  permission-ttl: 30m
+
+# Logging Configuration - Docker Environment
+logging:
+  level:
+    com.pacific.auth: INFO
+    com.pacific.core: INFO
+    org.springframework.security: DEBUG
+    org.springframework.web: INFO
+    org.hibernate.SQL: INFO
+    org.springframework.data.redis: INFO
+    org.apache.kafka: WARN
+
+# Actuator Configuration - Docker Environment
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
+  endpoint:
+    health:
+      show-details: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+# ==============================================================================
+# DOCKER-SPECIFIC OVERRIDES
+# ==============================================================================
+
+# Override any host-based configurations for container networking
+server:
+  port: 8082
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha

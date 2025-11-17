@@ -1,0 +1,284 @@
+# ==============================================================================
+# APPLICATION CONFIGURATION TEMPLATE
+# ==============================================================================
+# This file serves as a template for configuring the microservices.
+# Copy values to application.yml and customize per environment.
+# Use environment variables for sensitive data.
+# ==============================================================================
+
+# ==============================================================================
+# SPRING BOOT CORE CONFIGURATION
+# ==============================================================================
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:api-gateway}
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
+  cloud:
+    gateway:
+      # Route Configuration
+      routes:
+        - id: ${GATEWAY_ROUTES_AUTH_ID:auth-service}
+          uri: ${GATEWAY_ROUTES_AUTH_URI:http://localhost:8082}
+          predicates:
+            - Path=/api/auth/**
+          filters:
+            - StripPrefix=1
+
+        - id: ${GATEWAY_ROUTES_CUSTOMER_ID:customer-service}
+          uri: ${GATEWAY_ROUTES_CUSTOMER_URI:http://localhost:8084}
+          predicates:
+            - Path=/api/customers/**
+          filters:
+            - StripPrefix=1
+
+        - id: ${GATEWAY_ROUTES_ORDER_ID:order-service}
+          uri: ${GATEWAY_ROUTES_ORDER_URI:http://localhost:8081}
+          predicates:
+            - Path=/api/orders/**
+          filters:
+            - StripPrefix=1
+
+        - id: ${GATEWAY_ROUTES_PAYMENT_ID:payment-service}
+          uri: ${GATEWAY_ROUTES_PAYMENT_URI:http://localhost:8083}
+          predicates:
+            - Path=/api/payments/**
+          filters:
+            - StripPrefix=1
+
+      # Global Filters
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Headers
+
+  # Eureka Client Configuration (Optional)
+  config:
+    import: optional:eureka:
+
+# ==============================================================================
+# SERVER CONFIGURATION
+# ==============================================================================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/}
+  compression:
+    enabled: ${SERVER_COMPRESSION_ENABLED:true}
+  error:
+    include-message: ${SERVER_ERROR_INCLUDE_MESSAGE:always}
+    include-stacktrace: ${SERVER_ERROR_INCLUDE_STACKTRACE:never}
+
+# ==============================================================================
+# MANAGEMENT & ACTUATOR CONFIGURATION
+# ==============================================================================
+management:
+  endpoints:
+    web:
+      base-path: ${ACTUATOR_BASE_PATH:/actuator}
+      exposure:
+        include: ${ACTUATOR_ENDPOINTS:health,info,metrics,prometheus}
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:when-authorized}
+      enabled: ${ACTUATOR_HEALTH_ENABLED:true}
+    info:
+      enabled: ${ACTUATOR_INFO_ENABLED:true}
+    metrics:
+      enabled: ${ACTUATOR_METRICS_ENABLED:true}
+  metrics:
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true}
+
+# ==============================================================================
+# LOGGING CONFIGURATION
+# ==============================================================================
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.pacific: ${LOG_LEVEL_APP:DEBUG}
+    com.pacific.auth: ${LOG_LEVEL_AUTH:DEBUG}
+    com.pacific.core: ${LOG_LEVEL_BACKEND_CORE:DEBUG}
+    org.springframework: ${LOG_LEVEL_SPRING:INFO}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:DEBUG}
+    org.hibernate: ${LOG_LEVEL_HIBERNATE:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:DEBUG}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_HIBERNATE_BINDER:TRACE}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:logs/application.log}
+    max-size: ${LOG_FILE_MAX_SIZE:10MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+
+# ==============================================================================
+# OPENAPI/SWAGGER CONFIGURATION
+# ==============================================================================
+openapi:
+  title: ${API_TITLE:API Gateway}
+  description: ${API_DESCRIPTION:Central entry point for all microservices}
+  version: ${API_VERSION:1.0.0}
+  license:
+    name: ${API_LICENSE_NAME:Apache 2.0}
+    url: ${API_LICENSE_URL:https://www.apache.org/licenses/LICENSE-2.0}
+  server-urls:
+    - ${API_SERVER_URL:http://localhost:8080}
+
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    operationsSorter: ${SPRINGDOC_OPERATIONS_SORTER:method}
+    tagsSorter: ${SPRINGDOC_TAGS_SORTER:alpha}
+
+# ==============================================================================
+# API GATEWAY SPECIFIC CONFIGURATION
+# ==============================================================================
+api-gateway:
+  # Circuit Breaker Configuration
+  circuit-breaker:
+    enabled: ${CIRCUIT_BREAKER_ENABLED:true}
+    failure-rate-threshold: ${RESILIENCE4J_CIRCUIT_BREAKER_FAILURE_RATE_THRESHOLD:50}
+    slow-call-rate-threshold: ${RESILIENCE4J_CIRCUIT_BREAKER_SLOW_CALL_RATE_THRESHOLD:50}
+    wait-duration-in-open-state: ${RESILIENCE4J_CIRCUIT_BREAKER_WAIT_DURATION_IN_OPEN_STATE:60000}
+    slow-call-duration-threshold: ${RESILIENCE4J_CIRCUIT_BREAKER_SLOW_CALL_DURATION_THRESHOLD:3000}
+    permitted-number-of-calls-in-half-open-state: ${RESILIENCE4J_CIRCUIT_BREAKER_PERMITTED_NUMBER_OF_CALLS_IN_HALF_OPEN_STATE:3}
+    sliding-window-size: ${RESILIENCE4J_CIRCUIT_BREAKER_SLIDING_WINDOW_SIZE:10}
+
+  # Rate Limiting Configuration
+  rate-limiting:
+    enabled: ${GATEWAY_RATE_LIMITING_ENABLED:true}
+    global:
+      requests-per-minute: ${GATEWAY_RATE_LIMIT_GLOBAL_REQUESTS_PER_MINUTE:1000}
+    per-route:
+      requests-per-minute: ${GATEWAY_RATE_LIMIT_PER_ROUTE_REQUESTS_PER_MINUTE:100}
+
+  # Eureka Configuration (Optional)
+  eureka:
+    enabled: ${EUREKA_ENABLED:false}
+    client:
+      service-url:
+        default-zone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE:http://localhost:8761/eureka/}
+    instance:
+      prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:true}
+
+# ==============================================================================
+# BACKEND-CORE CONFIGURATION (Minimal for Gateway)
+# ==============================================================================
+backend-core:
+  # Security Configuration (for CORS)
+  security:
+    enabled: ${SECURITY_ENABLED:true}
+    enable-cors: ${SECURITY_ENABLE_CORS:true}
+
+    # CORS Configuration
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}
+      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+      exposed-headers: ${CORS_EXPOSED_HEADERS:Authorization,Content-Type}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+      max-age: ${CORS_MAX_AGE:3600}
+
+  # Monitoring Configuration
+  monitoring:
+    enabled: ${MONITORING_ENABLED:true}
+    enable-health-checks: ${MONITORING_HEALTH_CHECKS_ENABLED:true}
+    enable-metrics: ${MONITORING_METRICS_ENABLED:true}
+    enable-logging: ${MONITORING_LOGGING_ENABLED:true}
+    log-level: ${MONITORING_LOG_LEVEL:INFO}
+
+# ==============================================================================
+# PROFILE-SPECIFIC OVERRIDES
+# ==============================================================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: DEBUG
+    com.pacific: DEBUG
+
+backend-core:
+  security:
+    cors:
+      allowed-origins: "*"
+      allow-credentials: false
+
+auth-service:
+  security:
+    authentication:
+      jwt:
+        validation:
+          allow-localhost: true
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: WARN
+    com.pacific: INFO
+
+backend-core:
+  security:
+    cors:
+      # Must be explicitly set in production, no wildcard allowed
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+      allow-credentials: true
+
+auth-service:
+  security:
+    authentication:
+      jwt:
+        validation:
+          require-exact-match: true
+          allow-localhost: false
+      keycloak:
+        disable-trust-manager: false
+        allow-any-hostname: false
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/auth_db
+  redis:
+    host: redis
+  kafka:
+    bootstrap-servers: kafka:9092
+

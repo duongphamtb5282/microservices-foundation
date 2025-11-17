@@ -1,0 +1,208 @@
+version: "3.8"
+
+# Complete Docker Compose for Order & Payment Demo Services
+# This demonstrates the full event-driven microservices architecture
+
+services:
+  # ==================== Databases ====================
+
+  orders-db:
+    image: postgres:15-alpine
+    container_name: orders-db
+    environment:
+      POSTGRES_DB: orders_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - orders-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  payments-db:
+    image: postgres:15-alpine
+    container_name: payments-db
+    environment:
+      POSTGRES_DB: payments_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - payments-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  auth-db:
+    image: postgres:15-alpine
+    container_name: auth-db
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+    networks:
+      - microservices-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Kafka ====================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - microservices-network
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    networks:
+      - microservices-network
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  # Kafka UI for monitoring
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - microservices-network
+
+  # ==================== Microservices ====================
+
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: auth-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: auth-db
+      DB_PORT: 5432
+      DB_NAME: auth_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SERVER_PORT: 8082
+    ports:
+      - "8082:8082"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  order-service:
+    build:
+      context: ./ms-order-service
+      dockerfile: Dockerfile
+    container_name: ms-order-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: orders-db
+      DB_PORT: 5432
+      DB_NAME: orders_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AUTH_SERVICE_URL: http://auth-service:8082
+      SERVER_PORT: 8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      orders-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      auth-service:
+        condition: service_started
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  payment-service:
+    build:
+      context: ./ms-payment-service
+      dockerfile: Dockerfile
+    container_name: ms-payment-service
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_HOST: payments-db
+      DB_PORT: 5432
+      DB_NAME: payments_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SERVER_PORT: 8083
+    ports:
+      - "8083:8083"
+    depends_on:
+      payments-db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+      order-service:
+        condition: service_started
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+volumes:
+  orders-db-data:
+  payments-db-data:
+  auth-db-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-logs:
+
+networks:
+  microservices-network:
+    driver: bridge

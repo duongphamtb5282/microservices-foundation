@@ -1,0 +1,219 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.5'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'checkstyle'
+}
+
+group = 'com.pacific'
+version = '1.0.0'
+description = 'Auth Service - User management, authentication, and authorization'
+
+// Version configuration for dependencies
+ext {
+    backendCoreVersion = '1.0.0'
+    sharedVersion = '1.0.0'
+    useLocalDependencies = true // Set to false for production builds
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+springBoot {
+    mainClass = 'com.pacific.auth.AuthServiceApplication'
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+    // Add S3 repository for published artifacts if needed
+    // maven {
+    //     url "s3://your-bucket/releases"
+    //     // authentication credentials would be configured separately
+    // }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+    }
+}
+
+dependencies {
+    // Backend Core Library (includes shared) - conditional dependency for development vs production
+    if (project.file('../backend-core').isDirectory() && useLocalDependencies) {
+        // Use local JAR files during development
+        implementation fileTree(dir: '../backend-core/build/libs', include: '*.jar')
+        implementation fileTree(dir: '../shared/build/libs', include: '*.jar')
+    } else {
+        // Use published Maven artifacts for production/CI builds
+        implementation "com.pacific:backend-core:${backendCoreVersion}"
+        implementation "com.pacific:shared:${sharedVersion}"
+    }
+    
+    // Spring Boot Starters (additional to backend-core)
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.security:spring-security-oauth2-jose'
+    implementation 'org.springframework.security:spring-security-oauth2-resource-server'
+    implementation 'com.nimbusds:nimbus-jose-jwt'
+
+    // Caching dependencies - removed caffeine to avoid JCache conflicts
+    // implementation 'com.github.ben-manes.caffeine:caffeine:3.2.1'
+    // implementation 'com.github.ben-manes.caffeine:jcache:3.2.1'
+
+    // OpenAPI/Swagger (needed for @Operation, @Tag annotations)
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.7.0'
+
+    // Shared library (needed for ValidationException, ValidationUtils, etc.)
+    if (project.file('../shared').isDirectory() && useLocalDependencies) {
+        implementation fileTree(dir: '../shared/build/libs', include: '*.jar')
+    } else {
+        implementation "com.pacific:shared:1.0.0"
+    }
+
+    // Spring DevTools for hot reload during development
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    
+    // Database Migration
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-postgresql'
+
+    // PostgreSQL JDBC Driver
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // H2 Database for testing
+    runtimeOnly 'com.h2database:h2'
+    
+    // JWT Dependencies
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    
+    // MapStruct for object mapping
+    implementation 'org.mapstruct:mapstruct:1.6.3'
+    annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'
+    
+    // Spring Cloud OpenFeign for Keycloak API integration
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // Spring Cloud Function (needed for ContextFunctionCatalogAutoConfiguration)
+    implementation 'org.springframework.cloud:spring-cloud-function-context'
+
+    // Kafka integration for event publishing
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    // Resilience4j for circuit breaker functionality
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    
+    // Liquibase for database migrations
+    implementation 'org.liquibase:liquibase-core:4.27.0'
+
+    // Feign Form Encoder for URL-encoded requests
+    implementation 'io.github.openfeign.form:feign-form:3.8.0'
+    implementation 'io.github.openfeign.form:feign-form-spring:3.8.0'
+    
+    // Test Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+
+    // Lombok for test
+    testCompileOnly 'org.projectlombok:lombok:1.18.38'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.38'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Spotless configuration for code formatting
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/generated/**', '**/target/**'
+        }
+        googleJavaFormat()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    sql {
+        target fileTree('.') {
+            include '**/*.sql'
+            exclude '**/build/**'
+        }
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    // yaml {
+    //     target fileTree('.') {
+    //         include '**/*.yml', '**/*.yaml'
+    //         exclude '**/build/**', '**/target/**'
+    //     }
+    //     prettier()
+    // }
+
+    json {
+        target fileTree('.') {
+            include '**/*.json'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    format 'misc', {
+        target '*.md', '*.txt'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration - temporarily disabled due to configuration issues
+// checkstyle {
+//     toolVersion = '10.12.4'
+//     configFile = file('config/checkstyle/checkstyle.xml')
+//     showViolations = true
+//     maxWarnings = 0
+//     maxErrors = 0
+//     ignoreFailures = true
+//     reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+// }
+
+// Code quality tasks
+task codeQuality {
+    group = 'verification'
+    description = 'Runs all code quality checks (formatting, style, tests)'
+
+    dependsOn 'spotlessCheck', 'test' // checkstyle temporarily disabled
+}
+
+// Pre-commit hook task
+task preCommit {
+    group = 'verification'
+    description = 'Runs pre-commit checks (formatting, style, compilation)'
+
+    dependsOn 'spotlessCheck', 'compileJava', 'compileTestJava' // checkstyle temporarily disabled
+}

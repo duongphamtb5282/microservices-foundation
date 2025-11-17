@@ -1,0 +1,11 @@
+# Main application configuration
+# Profile-specific configurations are loaded from application-{profile}.yml
+# Common configuration is loaded from application-common.yml
+
+spring:
+  application:
+    name: auth-service
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  config:
+    import: optional:application-common.yml

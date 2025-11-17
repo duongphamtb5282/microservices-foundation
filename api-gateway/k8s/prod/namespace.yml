@@ -1,0 +1,59 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices-prod
+  labels:
+    environment: production
+    managed-by: kubectl
+  annotations:
+    description: "Production namespace for microservices"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: production-quota
+  namespace: microservices-prod
+spec:
+  hard:
+    requests.cpu: "4"
+    requests.memory: 8Gi
+    limits.cpu: "8"
+    limits.memory: 16Gi
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "5"
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: microservices-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-traffic
+  namespace: microservices-prod
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          environment: production
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          environment: production
+  - to: [] # Allow DNS resolution
+    ports:
+    - protocol: UDP
+      port: 53

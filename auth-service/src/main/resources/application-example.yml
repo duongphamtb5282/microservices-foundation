@@ -1,0 +1,236 @@
+# ==============================================================================
+# AUTH-SERVICE CONFIGURATION EXAMPLE
+# ==============================================================================
+# This file shows all configurable properties with their default values
+# Copy relevant sections to your application.yml and customize
+# ==============================================================================
+
+# ==============================================================================
+# BACKEND-CORE CONFIGURATION
+# ==============================================================================
+backend-core:
+  # Cache Configuration
+  cache:
+    enabled: true
+    type: redis
+    
+    # L1 Cache (Caffeine - In-Memory)
+    l1-cache:
+      enabled: true
+      max-size: 1000
+      ttl-minutes: 15
+    
+    # L2 Cache (Redis - Distributed)
+    l2-cache:
+      enabled: true
+      ttl-minutes: 30
+  
+  # Security Configuration
+  security:
+    enabled: true
+    enable-cors: true
+    enable-csrf: false
+    default-auth-mode: jwt
+    
+    # CORS Configuration
+    cors:
+      # WARNING: Never use "*" with allow-credentials=true in production
+      allowed-origins: "http://localhost:3000,http://localhost:4200"
+      allowed-methods: "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+      allowed-headers: "*"
+      exposed-headers: "Authorization,Content-Type"
+      allow-credentials: true
+      max-age: 3600
+  
+  # Database Configuration
+  database:
+    enabled: true
+    default-pool-type: hikari
+    default-min-idle: 2
+    default-max-pool-size: 10
+    default-connection-timeout: 20s
+    default-idle-timeout: 5m
+    default-max-lifetime: 10m
+  
+  # Monitoring Configuration
+  monitoring:
+    enabled: true
+    enable-health-checks: true
+    enable-metrics: true
+    enable-logging: true
+    log-level: INFO
+
+# ==============================================================================
+# OPENAPI/SWAGGER CONFIGURATION
+# ==============================================================================
+openapi:
+  title: "Auth Service API"
+  description: "Authentication and Authorization REST API"
+  version: "1.0.0"
+  license:
+    name: "Apache 2.0"
+    url: "https://www.apache.org/licenses/LICENSE-2.0"
+  server-urls:
+    - "http://localhost:8080"
+
+# ==============================================================================
+# AUTH-SERVICE SPECIFIC CONFIGURATION
+# ==============================================================================
+auth-service:
+  # Cache Configuration
+  cache:
+    service-prefix: "auth-service"
+    reload-on-startup: false
+    scheduled-reload-enabled: true
+    
+    # Cache Names
+    names:
+      users: "users"
+      roles: "roles"
+      tokens: "tokens"
+      permissions: "permissions"
+    
+    # Cache Key Patterns
+    patterns:
+      blacklisted-token: "blacklisted_token"
+      blacklisted-token-hash: "blacklisted_token_hash"
+      user-blacklisted: "user_blacklisted"
+      user-active-tokens: "user_active_tokens"
+    
+    # Cache TTLs
+    ttl:
+      user: "1h"
+      role: "2h"
+      token: "15m"
+      permission: "1h"
+  
+  # Security Configuration
+  security:
+    # Rate Limiting
+    rate-limiting:
+      enabled: true
+      max-requests-per-minute: 60
+      max-login-attempts-per-minute: 5
+      window-size-millis: 60000  # 1 minute
+      use-redis: false  # Set to true for distributed rate limiting
+      
+      # Endpoint-Specific Rate Limits
+      endpoints:
+        /api/auth/login:
+          max-requests: 5
+          window-millis: 60000
+        /api/auth/register:
+          max-requests: 10
+          window-millis: 60000
+    
+    # Endpoint Configuration
+    endpoints:
+      public-endpoints:
+        - "/api/auth/login"
+        - "/api/auth/register"
+        - "/api/auth/refresh"
+        - "/api/auth/forgot-password"
+        - "/api/auth/reset-password"
+        - "/actuator/health"
+        - "/actuator/info"
+        - "/swagger-ui/**"
+        - "/v3/api-docs/**"
+      
+      admin-endpoints:
+        - "/api/auth/admin/**"
+        - "/api/auth/users/**"
+        - "/api/auth/roles/**"
+        - "/api/auth/permissions/**"
+      
+      authentication-endpoints:
+        - "/api/auth/login"
+        - "/api/auth/register"
+      
+      keycloak-endpoints:
+        - "/realms/**"
+        - "/auth/**"
+    
+    # JWT Validation
+    jwt:
+      validation:
+        allowed-issuers:
+          - "auth-service"
+        require-exact-match: true
+        allow-localhost-issuer: false  # Set to true for development only
+    
+    # Authentication Configuration
+    authentication:
+      # JWT Configuration
+      jwt:
+        enabled: true
+        issuer: "auth-service"
+        secret: "${JWT_SECRET:mySecretKeyThatIsAtLeast256BitsLongForHS256Algorithm}"
+        access-token-ttl: "1h"
+      
+      # Keycloak Configuration (optional)
+      keycloak:
+        enabled: false
+        server-url: "${KEYCLOAK_SERVER_URL:http://localhost:8180}"
+        realm: "${KEYCLOAK_REALM:demo-realm}"
+        client-id: "${KEYCLOAK_CLIENT_ID:auth-service}"
+        credentials-secret: "${KEYCLOAK_SECRET:}"
+        ssl-required: "external"
+        use-resource-role-mappings: true
+        bearer-only: true
+        verify-token-audience: true
+        connection-pool-size: 20
+        
+        # Security: Never enable these in production
+        disable-trust-manager: false
+        allow-any-hostname: false
+
+# ==============================================================================
+# PROFILE-SPECIFIC OVERRIDES
+# ==============================================================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+backend-core:
+  security:
+    cors:
+      allowed-origins: "*"
+      allow-credentials: false
+
+auth-service:
+  security:
+    jwt:
+      validation:
+        allow-localhost-issuer: true
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+backend-core:
+  security:
+    cors:
+      # Must be explicitly set in production environment variables
+      allowed-origins: "${CORS_ALLOWED_ORIGINS}"
+      allow-credentials: true
+
+auth-service:
+  security:
+    rate-limiting:
+      use-redis: true  # Use Redis-based rate limiting in production
+    jwt:
+      validation:
+        require-exact-match: true
+        allow-localhost-issuer: false
+    authentication:
+      keycloak:
+        disable-trust-manager: false
+        allow-any-hostname: false
+

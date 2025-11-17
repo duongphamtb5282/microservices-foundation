@@ -1,0 +1,86 @@
+# Auth Service Configuration - Staging Environment
+# This profile is for staging with Keycloak authentication
+
+spring:
+  # Database Configuration - Staging
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+
+  # JPA Configuration - Staging
+  jpa:
+    hibernate:
+      ddl-auto: none  # Always use Flyway for migrations
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+
+  # Redis Configuration - Staging
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      database: 0
+
+# Auth Service Security Configuration - Staging with Keycloak
+auth-service:
+  security:
+    authentication:
+      mode: custom  # Can be: custom, keycloak, or dual
+      jwt:
+        enabled: false
+        secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+        access-token-ttl: ${JWT_ACCESS_TTL:24h}
+        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+        issuer: ${JWT_ISSUER:auth-service-stg}
+        audience: ${JWT_AUDIENCE:microservices-stg}
+      keycloak:
+        enabled: true
+        server-url: ${KEYCLOAK_URL:http://localhost:8080}
+        realm: ${KEYCLOAK_REALM:auth-service}
+        client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
+        credentials-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        ssl-required: ${KEYCLOAK_SSL:none}
+        verify-token-audience: ${KEYCLOAK_VERIFY_AUDIENCE:false}
+    cors:
+      enabled: true
+      allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080,http://localhost:8082}
+      allowed-methods: ["*"]
+      allowed-headers: ["*"]
+      allow-credentials: true
+
+  # Cache Configuration - Staging
+  auth-cache:
+    user-ttl: 1h
+    token-ttl: 30m
+    role-ttl: 2h
+    permission-ttl: 1h
+
+# Security Headers - Staging
+security:
+  headers:
+    connect-src: ${CSP_CONNECT_SRC:http://localhost:* ws://localhost:* wss://localhost:*}
+
+# Logging Configuration - Staging
+logging:
+  level:
+    com.pacific.auth: INFO
+    com.pacific.core: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+
+# Actuator Configuration - Staging
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,info,metrics,prometheus"
+  endpoint:
+    health:
+      show-details: when-authorized

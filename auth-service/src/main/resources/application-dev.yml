@@ -1,0 +1,147 @@
+# Development Profile Configuration
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # Database Configuration - Development
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth}
+    username: ${DB_USERNAME:auth_user}
+    password: ${DB_PASSWORD}
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:300000}
+      max-lifetime: ${DB_MAX_LIFETIME:600000}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:2}
+      leak-detection-threshold: ${DB_LEAK_DETECTION_THRESHOLD:30000}
+
+  # Redis Configuration - Development
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: ${REDIS_TIMEOUT:2000}ms
+      database: ${REDIS_DATABASE:0}
+
+  # Kafka Configuration - Development
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+  # JPA/Hibernate Configuration - Development
+  jpa:
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${HIBERNATE_FORMAT_SQL:true}
+        # Hibernate second-level cache - disabled temporarily
+        cache:
+          use_second_level_cache: false
+          use_query_cache: false
+
+# Auth Service - Development Configuration
+auth-service:
+  security:
+    authentication:
+      mode: ${AUTH_MODE:keycloak}  # Use Keycloak for development
+      jwt:
+        enabled: false
+        secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+        access-token-ttl: ${JWT_ACCESS_TTL:1h}
+        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+        issuer: ${JWT_ISSUER:auth-service-dev}
+        audience: ${JWT_AUDIENCE:microservices}
+      keycloak:
+        enabled: true  # Enable Keycloak for development
+        server-url: ${KEYCLOAK_URL:http://localhost:8080}
+        realm: ${KEYCLOAK_REALM:auth-service}
+        client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
+        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        ssl-required: none
+        public-client: false
+        verify-token-audience: true
+        issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8080/realms/auth-service}
+        jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://localhost:8080/realms/auth-service/protocol/openid-connect/certs}
+
+    cors:
+      enabled: ${CORS_ENABLED:true}
+      allowed-origins: ${CORS_ORIGINS:http://localhost:3000,http://localhost:8080}
+      allowed-methods: ${CORS_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      allowed-headers: ${CORS_HEADERS:*}
+      allow-credentials: ${CORS_CREDENTIALS:true}
+
+    cache:
+      enabled: ${AUTH_CACHE_ENABLED:true}
+      default-ttl: ${AUTH_CACHE_TTL:5m}
+      max-size: ${AUTH_CACHE_SIZE:1000}
+
+  jwt:
+    access-token-ttl: ${JWT_ACCESS_TTL:1h}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+    secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+    issuer: ${JWT_ISSUER:auth-service-dev}
+    audience: ${JWT_AUDIENCE:microservices}
+
+  auth-cache:
+    user-ttl: ${AUTH_USER_CACHE_TTL:5m}
+    token-ttl: ${AUTH_TOKEN_CACHE_TTL:15m}
+    role-ttl: ${AUTH_ROLE_CACHE_TTL:1h}
+    permission-ttl: ${AUTH_PERMISSION_CACHE_TTL:30m}
+    max-users: ${AUTH_MAX_USERS:1000}
+    max-tokens: ${AUTH_MAX_TOKENS:500}
+
+  database:
+    schema: ${DB_SCHEMA:auth}
+    pool:
+      max-size: ${DB_MAX_POOL_SIZE:15}
+      min-idle: ${DB_MIN_IDLE:3}
+
+# Cache Configuration - Development
+cache:
+  enabled: ${CACHE_ENABLED:true}
+
+# Kafka Configuration - Development
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+
+# Database Configuration - Development
+database:
+  enabled: ${DATABASE_ENABLED:true}
+
+# Monitoring Configuration - Development
+monitoring:
+  enabled: ${MONITORING_ENABLED:true}
+
+# Logging Configuration - Development
+logging:
+  level:
+    com.pacific.auth: ${LOG_LEVEL_AUTH:DEBUG}
+    com.pacific.core: ${LOG_LEVEL_BACKEND:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+    org.springframework.web: ${LOG_LEVEL_WEB:INFO}
+  file:
+    name: ${LOG_FILE_NAME:logs/auth-service-dev.log}
+    max-size: ${LOG_FILE_MAX_SIZE:50MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:7}
+
+# Management/Actuator Configuration - Development
+management:
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:always}
+    metrics:
+      enabled: ${ACTUATOR_METRICS_ENABLED:true}
+  metrics:
+    tags:
+      environment: development
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true}
+
+# Development-specific settings
+debug: ${DEBUG_ENABLED:false}
+server:
+  port: ${SERVER_PORT:8082}

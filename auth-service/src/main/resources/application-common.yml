@@ -1,0 +1,288 @@
+# Common Configuration - Shared across all environments
+# This file contains settings that are common to all profiles
+# Environment-specific overrides are in application-{profile}.yml
+
+server:
+  port: ${SERVER_PORT:8082}
+  shutdown: graceful
+
+spring:
+  application:
+    name: auth-service
+  cloud:
+    compatibility-verifier:
+      enabled: false
+    openfeign:
+      lazy-attributes-resolution: true
+
+  # Spring Kafka Configuration (for backend-core compatibility)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        spring.json.add.type.headers: false
+    consumer:
+      group-id: auth-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.pacific.shared.events"
+
+  # Database Configuration - PostgreSQL 16
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth}
+    username: ${DB_USERNAME:auth_user}
+    password: ${DB_PASSWORD:auth_password}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 600000
+      leak-detection-threshold: 30000
+
+  # Liquibase Configuration
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog-master.xml
+    default-schema: public
+
+  # JPA Configuration with Multi-Level Caching
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        hbm2ddl:
+          auto: none
+        # Hibernate second-level cache configuration
+        cache:
+          use_second_level_cache: ${HIBERNATE_USE_SECOND_LEVEL_CACHE:true}
+          use_query_cache: ${HIBERNATE_USE_QUERY_CACHE:true}
+    jdbc:
+      time_zone: UTC
+
+# Kafka Configuration (backend-core messaging)
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+  retry:
+    maxAttempts: 3
+    initial-backoff: 1s
+    max-backoff: 5m
+  cqrs:
+    enabled: true
+    command-topic: auth-commands
+    event-topic: auth-events
+
+# Cache Configuration (backend-core caching)
+cache:
+  enabled: ${CACHE_ENABLED:true}
+
+# Database Configuration
+database:
+  enabled: ${DATABASE_ENABLED:true}
+  default-max-pool-size: 20
+
+# Monitoring Configuration
+monitoring:
+  enabled: ${MONITORING_ENABLED:true}
+  enable-health-checks: true
+  enable-metrics: true
+
+# OpenAPI/Swagger Configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  show-actuator: true
+  info:
+    title: Auth Service API
+    version: 1.0.0
+    description: Authentication and authorization service for microservices architecture
+    contact:
+      name: API Support
+      email: support@auth-service.com
+    license:
+      name: Apache 2.0
+      url: https://www.apache.org/licenses/LICENSE-2.0
+
+# Auth Service Security Configuration (Default - overridden by profiles)
+auth-service:
+  security:
+    authentication:
+      mode: ${AUTH_MODE:custom}  # Default to custom, overridden by profiles
+      jwt:
+        enabled: false
+        secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+        access-token-ttl: ${JWT_ACCESS_TTL:1h}
+        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+        issuer: ${JWT_ISSUER:auth-service}
+        audience: ${JWT_AUDIENCE:microservices}
+      keycloak:
+        enabled: true
+        server-url: ${KEYCLOAK_URL:http://localhost:8080}
+        realm: auth-service
+        client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
+        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        ssl-required: none
+        public-client: false
+        verify-token-audience: true
+
+    cors:
+      enabled: ${CORS_ENABLED:true}
+      allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+      allowed-methods: ${CORS_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      allowed-headers: ${CORS_HEADERS:*}
+      allow-credentials: ${CORS_CREDENTIALS:true}
+      max-age: 3600
+
+    cache:
+      enabled: ${AUTH_CACHE_ENABLED:true}
+      default-ttl: ${AUTH_CACHE_TTL:5m}
+      max-size: ${AUTH_CACHE_SIZE:1000}
+
+    monitoring:
+      enabled: ${MONITORING_ENABLED:true}
+      audit-logging: true
+      sensitive-fields: ["password", "token", "secret", "authorization"]
+    endpoints:
+      public-endpoints:
+        - /api/auth/login
+        - /api/auth/register
+        - /api/auth/refresh
+        - /api/auth/forgot-password
+        - /api/auth/reset-password
+        - /api/public/**
+        - /api/test/**
+        - /swagger-ui/**
+        - /v3/api-docs/**
+        - /swagger-ui.html
+        - /actuator/health
+        - /actuator/info
+      admin-endpoints:
+        - /api/admin/**
+        - /api/cache/**
+        - /api/auth/admin/**
+        - /api/auth/users/**
+        - /api/auth/roles/**
+        - /api/auth/permissions/**
+      user-endpoints:
+        - /api/user/**
+        - /api/users/**
+        - /api/comments/**
+        - /api/auth/me
+        - /api/auth/has-role/**
+        - /api/auth/authorities
+        - /api/auth/logout
+      authentication-endpoints:
+        - /api/auth/login
+        - /api/auth/register
+      keycloak-endpoints:
+        - /realms/**
+        - /auth/**
+        - /admin/**
+
+  cache:
+    service-prefix: ${AUTH_CACHE_SERVICE_PREFIX:auth-service}
+    reload-on-startup: ${AUTH_CACHE_RELOAD_ON_STARTUP:false}
+    scheduled-reload-enabled: ${AUTH_CACHE_SCHEDULED_RELOAD:true}
+    names:
+      users: ${AUTH_CACHE_NAME_USERS:users}
+      roles: ${AUTH_CACHE_NAME_ROLES:roles}
+      tokens: ${AUTH_CACHE_NAME_TOKENS:tokens}
+      permissions: ${AUTH_CACHE_NAME_PERMISSIONS:permissions}
+    patterns:
+      blacklisted-token: ${AUTH_CACHE_PATTERN_BLACKLISTED_TOKEN:blacklisted_token}
+      blacklisted-token-hash: ${AUTH_CACHE_PATTERN_BLACKLISTED_TOKEN_HASH:blacklisted_token_hash}
+      user-blacklisted: ${AUTH_CACHE_PATTERN_USER_BLACKLISTED:user_blacklisted}
+      user-active-tokens: ${AUTH_CACHE_PATTERN_USER_ACTIVE_TOKENS:user_active_tokens}
+    ttl:
+      user: ${AUTH_CACHE_TTL_USER:1h}
+      role: ${AUTH_CACHE_TTL_ROLE:2h}
+      token: ${AUTH_CACHE_TTL_TOKEN:15m}
+      permission: ${AUTH_CACHE_TTL_PERMISSION:1h}
+
+  jwt:
+    access-token-ttl: ${JWT_ACCESS_TTL:1h}
+    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
+    secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
+    issuer: ${JWT_ISSUER:auth-service}
+    audience: ${JWT_AUDIENCE:microservices}
+
+  auth-cache:
+    user-ttl: ${AUTH_USER_CACHE_TTL:5m}
+    token-ttl: ${AUTH_TOKEN_CACHE_TTL:15m}
+    role-ttl: ${AUTH_ROLE_CACHE_TTL:1h}
+    permission-ttl: ${AUTH_PERMISSION_CACHE_TTL:30m}
+    max-users: ${AUTH_MAX_USERS:1000}
+    max-tokens: ${AUTH_MAX_TOKENS:500}
+
+  database:
+    schema: ${DB_SCHEMA:auth}
+    pool:
+      max-size: ${DB_MAX_POOL_SIZE:15}
+      min-idle: ${DB_MIN_IDLE:3}
+
+# Security Configuration
+security:
+  headers:
+    connect-src: ${SECURITY_CONNECT_SRC:http://localhost:3000 http://localhost:8080 http://localhost:8082}
+
+  token-detection:
+    custom:
+      issuer: ${JWT_ISSUER:auth-service}
+      issuer-patterns:
+        - ${JWT_ISSUER:auth-service}
+    keycloak:
+      issuer-patterns:
+        - keycloak
+        - realm
+      server-url: ${KEYCLOAK_URL:http://localhost:8080}
+      realm: ${KEYCLOAK_REALM:master}
+
+# Logging Configuration
+logging:
+  masking:
+    enabled: true
+    partial-masking: false
+    mask-character: "*"
+    partial-mask-length: 4
+  level:
+    com.pacific.logback: WARN
+    com.pacific.logback.LogMaskingProperties: WARN
+    com.pacific.auth: ${LOG_LEVEL_AUTH:INFO}
+    com.pacific.core: ${LOG_LEVEL_BACKEND:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:INFO}
+  async:
+    queue-size: 32
+    discarding-threshold: 5
+    include-caller-data: false
+
+# Actuator Configuration
+management:
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+      enabled: true
+    info:
+      enabled: true
+    metrics:
+      enabled: true
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true

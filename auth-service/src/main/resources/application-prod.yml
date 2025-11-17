@@ -1,0 +1,220 @@
+# Production Profile Configuration
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # Database Configuration - Production
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://auth-postgres-cluster.auth-service.svc.cluster.local:5432/auth}
+    username: ${DB_USERNAME:auth_user}
+    password: ${DB_PASSWORD}  # Must be set in production
+    hikari:
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:15000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:300000}
+      max-lifetime: ${DB_MAX_LIFETIME:600000}
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:50}
+      minimum-idle: ${DB_MIN_IDLE:10}
+      leak-detection-threshold: ${DB_LEAK_DETECTION_THRESHOLD:60000}
+      validation-timeout: ${DB_VALIDATION_TIMEOUT:5000}
+
+  # Redis Configuration - Production (Cluster)
+  data:
+    redis:
+      host: ${REDIS_HOST:auth-redis-cluster.auth-service.svc.cluster.local}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}  # Must be set in production
+      timeout: ${REDIS_TIMEOUT:2000}ms
+      database: ${REDIS_DATABASE:0}
+      cluster:
+        nodes: ${REDIS_CLUSTER_NODES:auth-redis-cluster-0.auth-service.svc.cluster.local:6379,auth-redis-cluster-1.auth-service.svc.cluster.local:6379,auth-redis-cluster-2.auth-service.svc.cluster.local:6379}
+      lettuce:
+        pool:
+          max-active: ${REDIS_POOL_MAX_ACTIVE:20}
+          max-idle: ${REDIS_POOL_MAX_IDLE:10}
+          min-idle: ${REDIS_POOL_MIN_IDLE:5}
+          max-wait: ${REDIS_POOL_MAX_WAIT:5000}ms
+
+  # Kafka Configuration - Production
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:auth-kafka-cluster.auth-service.svc.cluster.local:9092}
+    security:
+      protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+    sasl:
+      mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-256}
+      jaas:
+        config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME}" password="${KAFKA_PASSWORD}";
+    ssl:
+      truststore:
+        location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:/etc/ssl/certs/ca-certificates.crt}
+        password: ${KAFKA_TRUSTSTORE_PASSWORD:}
+
+  # JPA/Hibernate Configuration - Production
+  jpa:
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        format_sql: ${HIBERNATE_FORMAT_SQL:false}
+        # Hibernate second-level cache - optimized for production
+        cache:
+          use_second_level_cache: ${HIBERNATE_USE_SECOND_LEVEL_CACHE:true}
+          use_query_cache: ${HIBERNATE_USE_QUERY_CACHE:true}
+          region:
+            factory_class: org.hibernate.cache.ehcache.EhCacheRegionFactory
+        # Production-specific Hibernate optimizations
+        jdbc:
+          batch_size: ${HIBERNATE_JDBC_BATCH_SIZE:25}
+          order_inserts: ${HIBERNATE_JDBC_ORDER_INSERTS:true}
+          order_updates: ${HIBERNATE_JDBC_ORDER_UPDATES:true}
+        generate_statistics: ${HIBERNATE_GENERATE_STATISTICS:false}
+
+# Auth Service - Production Configuration
+auth-service:
+  security:
+    authentication:
+      mode: ${AUTH_MODE:keycloak}  # Use Keycloak for production
+      jwt:
+        enabled: false  # Disable custom JWT in production
+      keycloak:
+        enabled: true
+        server-url: ${KEYCLOAK_URL:https://keycloak.auth-service.company.com}
+        realm: ${KEYCLOAK_REALM:auth-service-prod}
+        client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
+        client-secret: ${KEYCLOAK_CLIENT_SECRET}  # Must be set in production
+        ssl-required: ${KEYCLOAK_SSL_REQUIRED:external}
+        public-client: false
+        verify-token-audience: true
+        cors: false
+
+    cors:
+      enabled: ${CORS_ENABLED:true}
+      allowed-origins: ${CORS_ORIGINS:https://your-app.company.com}
+      allowed-methods: ${CORS_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      allowed-headers: ${CORS_HEADERS:Authorization,Content-Type,X-Requested-With}
+      allow-credentials: ${CORS_CREDENTIALS:true}
+      max-age: ${CORS_MAX_AGE:3600}
+
+    cache:
+      enabled: ${AUTH_CACHE_ENABLED:true}
+      default-ttl: ${AUTH_CACHE_TTL:10m}
+      max-size: ${AUTH_CACHE_SIZE:5000}
+
+  jwt:
+    access-token-ttl: ${JWT_ACCESS_TTL:30m}  # Shorter TTL for production
+    refresh-token-ttl: ${JWT_REFRESH_TTL:24h}
+    secret: ${JWT_SECRET}  # Must be set in production
+    issuer: ${JWT_ISSUER:auth-service-prod}
+    audience: ${JWT_AUDIENCE:microservices-prod}
+
+  auth-cache:
+    user-ttl: ${AUTH_USER_CACHE_TTL:10m}
+    token-ttl: ${AUTH_TOKEN_CACHE_TTL:30m}
+    role-ttl: ${AUTH_ROLE_CACHE_TTL:2h}
+    permission-ttl: ${AUTH_PERMISSION_CACHE_TTL:1h}
+    max-users: ${AUTH_MAX_USERS:10000}
+    max-tokens: ${AUTH_MAX_TOKENS:5000}
+
+  database:
+    schema: ${DB_SCHEMA:auth}
+    pool:
+      max-size: ${DB_MAX_POOL_SIZE:50}
+      min-idle: ${DB_MIN_IDLE:10}
+
+# Cache Configuration - Production
+cache:
+  enabled: ${CACHE_ENABLED:true}
+
+# Kafka Configuration - Production
+kafka:
+  enabled: ${KAFKA_ENABLED:true}
+  retry:
+    maxAttempts: ${KAFKA_MAX_ATTEMPTS:5}
+    initial-backoff: ${KAFKA_INITIAL_BACKOFF:2s}
+    max-backoff: ${KAFKA_MAX_BACKOFF:10m}
+
+# Database Configuration - Production
+database:
+  enabled: ${DATABASE_ENABLED:true}
+  default-max-pool-size: ${DATABASE_MAX_POOL_SIZE:50}
+
+# Monitoring Configuration - Production
+monitoring:
+  enabled: ${MONITORING_ENABLED:true}
+  enable-health-checks: ${MONITORING_HEALTH_CHECKS:true}
+  enable-metrics: ${MONITORING_METRICS:true}
+
+# Logging Configuration - Production
+logging:
+  level:
+    com.pacific.auth: ${LOG_LEVEL_AUTH:INFO}
+    com.pacific.core: ${LOG_LEVEL_BACKEND:WARN}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_SQL:WARN}
+    org.springframework.web: ${LOG_LEVEL_WEB:WARN}
+    org.apache.kafka: ${LOG_LEVEL_KAFKA:WARN}
+  file:
+    name: ${LOG_FILE_NAME:/var/log/auth-service/auth-service.log}
+    max-size: ${LOG_FILE_MAX_SIZE:200MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+    total-size-cap: ${LOG_FILE_TOTAL_SIZE_CAP:2GB}
+
+# Management/Actuator Configuration - Production
+management:
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:when_authorized}
+      probes:
+        enabled: ${ACTUATOR_HEALTH_PROBES_ENABLED:true}
+    metrics:
+      enabled: ${ACTUATOR_METRICS_ENABLED:true}
+  metrics:
+    tags:
+      environment: production
+      service: auth-service
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true}
+        descriptions: ${PROMETHEUS_DESCRIPTIONS:false}
+  health:
+    redis:
+      enabled: ${HEALTH_REDIS_ENABLED:true}
+    db:
+      enabled: ${HEALTH_DB_ENABLED:true}
+
+# Production-specific settings
+server:
+  port: ${SERVER_PORT:8082}
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml,text/x-component
+    min-response-size: 1024
+  shutdown: graceful
+
+# JVM Production Optimizations
+java:
+  opts: |
+    -XX:+UseG1GC
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/var/log/auth-service/
+    -XX:+PrintGCDetails
+    -XX:+PrintGCTimeStamps
+    -Xloggc:/var/log/auth-service/gc.log
+    -XX:+UseGCLogFileRotation
+    -XX:GCLogFileSize=10M
+    -XX:NumberOfGCLogFiles=5
+    -Dcom.sun.management.jmxremote
+    -Dcom.sun.management.jmxremote.port=9010
+    -Dcom.sun.management.jmxremote.rmi.port=9010
+    -Dcom.sun.management.jmxremote.local.only=false
+    -Dcom.sun.management.jmxremote.authenticate=true
+    -Dcom.sun.management.jmxremote.password.file=/etc/jmx/jmxremote.password
+    -Dcom.sun.management.jmxremote.access.file=/etc/jmx/jmxremote.access
+    -Dcom.sun.management.jmxremote.ssl=true
+    -Dcom.sun.management.jmxremote.ssl.need.client.auth=true
+    -Djavax.net.ssl.keyStore=/etc/ssl/keystore.jks
+    -Djavax.net.ssl.keyStorePassword=${KEYSTORE_PASSWORD}
+    -Djavax.net.ssl.trustStore=/etc/ssl/truststore.jks
+    -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD}
+    -Djava.rmi.server.hostname=127.0.0.1

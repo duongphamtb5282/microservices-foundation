@@ -1,0 +1,36 @@
+
+configurations {
+  all {
+    resolutionStrategy {
+    }
+  }
+}
+
+ext {
+    springProfiles = "prod"
+}
+
+springBoot {
+    buildInfo()
+}
+
+bootRun {
+    args = ["--spring.profiles.active=${springProfiles}"]
+}
+
+
+processResources {
+    inputs.property('version', version)
+    inputs.property('springProfiles', springProfiles)
+    filesMatching("**/application.yml") {
+        filter {
+            it.replace("@project.version@", version)
+        }
+        filter {
+            it.replace("@spring.profiles.active@", springProfiles)
+        }
+    }
+}
+
+
+bootJar.dependsOn processResources

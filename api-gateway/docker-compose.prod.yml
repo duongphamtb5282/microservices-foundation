@@ -1,0 +1,545 @@
+version: "3.8"
+
+# Production Docker Compose Configuration
+# Optimized for production with security, monitoring, and scalability
+
+services:
+  # ==================== DATABASES ====================
+
+  # PostgreSQL for Orders (Production)
+  postgres-orders:
+    image: postgres:15-alpine
+    container_name: postgres-orders-prod
+    environment:
+      POSTGRES_DB: orders_prod
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_orders_data:/var/lib/postgresql/data
+      - ./scripts/init-prod-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    # Security: No port exposure in production (internal network only)
+    # deploy:
+    #   resources:
+    #     limits:
+    #       memory: 512M
+    #     reservations:
+    #       memory: 256M
+
+  # PostgreSQL for Payments (Production)
+  postgres-payments:
+    image: postgres:15-alpine
+    container_name: postgres-payments-prod
+    environment:
+      POSTGRES_DB: payments_prod
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_payments_data:/var/lib/postgresql/data
+      - ./scripts/init-prod-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # PostgreSQL for Auth (Production)
+  postgres-auth:
+    image: postgres:15-alpine
+    container_name: postgres-auth-prod
+    environment:
+      POSTGRES_DB: auth_prod
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+      - ./scripts/init-prod-db.sql:/docker-entrypoint-initdb.d/01-init.sql
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ==================== MESSAGE QUEUE ====================
+
+  # Kafka Cluster (Production)
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka-prod
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168 # 7 days
+      KAFKA_LOG_SEGMENT_MS: 86400000 # 1 day
+      KAFKA_LOG_CLEANUP_POLICY: delete
+      KAFKA_AUTO_LEADER_REBALANCE_ENABLE: "true"
+      KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: "false"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+      - kafka_logs:/var/lib/kafka/log
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "kafka-broker-api-versions --bootstrap-server localhost:9092",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper-prod
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 5
+      ZOOKEEPER_INIT_LIMIT: 10
+      ZOOKEEPER_AUTOPURGE_PURGEINTERVAL: 1
+      ZOOKEEPER_AUTOPURGE_SNAPRETAINCOUNT: 3
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 2181"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ==================== CACHING ====================
+
+  # Redis Cluster (Production)
+  redis:
+    image: redis:7-alpine
+    container_name: redis-prod
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ==================== CONFIGURATION MANAGEMENT ====================
+
+  # Spring Cloud Config Server (Production)
+  config-server:
+    image: your-registry/config-server:latest
+    container_name: config-server-prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_CONFIG_SERVER_GIT_URI: https://github.com/your-org/microservices-config
+      SPRING_CLOUD_CONFIG_SERVER_GIT_USERNAME: ${GITHUB_USERNAME}
+      SPRING_CLOUD_CONFIG_SERVER_GIT_PASSWORD: ${GITHUB_TOKEN}
+      ENCRYPT_KEY: ${CONFIG_ENCRYPTION_KEY}
+    ports:
+      - "8888:8888"
+    volumes:
+      - config_server_logs:/var/log/config-server
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8888/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # ==================== MONITORING ====================
+
+  # Prometheus (Production)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-prod
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - backend-network
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9090/-/healthy",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # Grafana (Production)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-prod
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - backend-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+
+  # Zipkin (Distributed Tracing)
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: zipkin-prod
+    ports:
+      - "9411:9411"
+    environment:
+      STORAGE_TYPE: mysql
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:9411/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ==================== MICROSERVICES ====================
+
+  # Auth Service (Production)
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile.prod
+    container_name: auth-service-prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/auth_prod
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: ${JWT_ISSUER_URI}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      API_KEYS: ${API_KEYS}
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_COM_DEMO: INFO
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8082/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # Order Service (Production)
+  order-service:
+    build:
+      context: ./ms-order-service
+      dockerfile: Dockerfile.prod
+    container_name: order-service-prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-orders:5432/orders_prod
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      AUTH_SERVICE_URL: http://auth-service:8082
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_COM_DEMO: INFO
+      MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: true
+      BACKEND_CORE_MONITORING_APM_ENABLED: true
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8081/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    depends_on:
+      postgres-orders:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+
+  # Payment Service (Production)
+  payment-service:
+    build:
+      context: ./ms-payment-service
+      dockerfile: Dockerfile.prod
+    container_name: payment-service-prod
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-payments:5432/payments_prod
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_COM_DEMO: INFO
+      MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED: true
+      BACKEND_CORE_MONITORING_APM_ENABLED: true
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8083/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    restart: unless-stopped
+    depends_on:
+      postgres-payments:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  # API Gateway (Production)
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile.prod
+    container_name: api-gateway-prod
+    ports:
+      - "8080:8080"
+      - "8443:8443" # HTTPS
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_CLOUD_CONFIG_URI: http://config-server:8888
+      SPRING_ZIPKIN_ENDPOINT: http://zipkin:9411/api/v2/spans
+      GATEWAY_FILTERS_AUTHENTICATION_ENABLED: true
+      GATEWAY_FILTERS_API_KEY_ENABLED: true
+      GATEWAY_FILTERS_RATE_LIMITING_ENABLED: true
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      SSL_ENABLED: true
+      LOGGING_LEVEL_ROOT: WARN
+      LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_CLOUD_GATEWAY: INFO
+    volumes:
+      - ./ssl:/app/ssl:ro # SSL certificates
+    networks:
+      - backend-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:8080/actuator/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    depends_on:
+      auth-service:
+        condition: service_healthy
+      order-service:
+        condition: service_healthy
+      payment-service:
+        condition: service_healthy
+
+  # ==================== LOGGING & MONITORING ====================
+
+  # ELK Stack for centralized logging (Optional)
+  # elasticsearch:
+  #   image: elasticsearch:8.11.0
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   networks:
+  #     - backend-network
+
+  # logstash:
+  #   image: logstash:8.11.0
+  #   depends_on:
+  #     - elasticsearch
+  #   volumes:
+  #     - ./monitoring/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+  #   networks:
+  #     - backend-network
+
+  # kibana:
+  #   image: kibana:8.11.0
+  #   depends_on:
+  #     - elasticsearch
+  #   ports:
+  #     - "5601:5601"
+  #   networks:
+  #     - backend-network
+
+volumes:
+  postgres_orders_data:
+    driver: local
+  postgres_payments_data:
+    driver: local
+  postgres_auth_data:
+    driver: local
+  kafka_data:
+    driver: local
+  kafka_logs:
+    driver: local
+  zookeeper_data:
+    driver: local
+  zookeeper_logs:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  config_server_logs:
+    driver: local
+  # elasticsearch_data:
+  #   driver: local
+
+networks:
+  backend-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+# ==================== PRODUCTION OPTIMIZATIONS ====================
+
+# Resource limits for production
+# deploy:
+#   resources:
+#     limits:
+#       memory: 2G
+#     reservations:
+#       memory: 1G
+
+# Health check improvements
+# healthcheck:
+#   test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+#   interval: 30s
+#   timeout: 10s
+#   retries: 5
+#   start_period: 120s
