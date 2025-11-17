@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ms-customer
+  namespace: ms-customer-prod
+  labels:
+    app: ms-customer
+    service: ms-customer
+    environment: production
+    # EKS specific labels
+    app.kubernetes.io/name: ms-customer
+    app.kubernetes.io/component: customer-service
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+  annotations:
+    # Service annotations for EKS
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    # Prometheus service discovery
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8084"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8084
+    targetPort: 8084
+    protocol: TCP
+    name: http
+  selector:
+    app: ms-customer
+  sessionAffinity: None

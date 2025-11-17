@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-order-service-config
+  namespace: ms-order-service-prod
+  labels:
+    app: ms-order-service
+    service: ms-order-service
+    environment: production
+    # EKS specific labels
+    app.kubernetes.io/name: ms-order-service
+    app.kubernetes.io/component: order-service
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  data:
+    application-prod.yml: |
+      spring:
+        application:
+          name: ms-order-service
+        profiles:
+          active: prod
+        datasource:
+          url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+          username: ${DB_USERNAME}
+          password: ${DB_PASSWORD}
+          driver-class-name: org.postgresql.Driver
+          hikari:
+            maximum-pool-size: 10
+            minimum-idle: 5
+            connection-timeout: 30000
+            idle-timeout: 600000
+            max-lifetime: 1800000
+        jpa:
+          hibernate:
+            ddl-auto: validate
+            show-sql: false
+            properties:
+              hibernate:
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: true
+                jdbc:
+                  time_zone: UTC
+                  batch_size: 20
+        liquibase:
+          enabled: true
+          change-log: classpath:db/changelog/db.changelog-master.xml
+          default-schema: public
+        kafka:
+          bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+          consumer:
+            group-id: order-service
+            auto-offset-reset: earliest
+            properties:
+              spring.json.trusted.packages: "com.pacific.order.domain.event"
+          producer:
+            acks: all
+            retries: 3
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        data:
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT}
+            password: ${REDIS_PASSWORD}
+            timeout: 2000ms
+            lettuce:
+              pool:
+                max-active: 8
+                max-idle: 8
+                min-idle: 0
+                max-wait: -1ms
+        cache:
+          type: redis
+        security:
+          oauth2:
+            resourceserver:
+              jwt:
+                issuer-uri: ${AUTH_SERVICE_URL}/realms/microservices
+
+      backend-core:
+        messaging:
+          kafka-wrapper:
+            enabled: true
+            cqrs:
+              enabled: true
+            retry:
+              max-attempts: 3
+              initial-backoff: 1s
+              enable-dlq: true
+        security:
+          encryption:
+            enabled: true
+          scanning:
+            enabled: true
+
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,metrics,prometheus,circuitbreakers,business
+        metrics:
+          export:
+            prometheus:
+              enabled: true
+        endpoint:
+          health:
+            show-details: when_authorized
+
+      logging:
+        level:
+          root: INFO
+          com.pacific.order: DEBUG
+          com.pacific.core: INFO

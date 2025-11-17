@@ -1,0 +1,89 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: auth-service-network-policy
+  namespace: auth-service-prod
+  labels:
+    app: auth-service
+    environment: production
+spec:
+  podSelector:
+    matchLabels:
+      app: auth-service
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from API Gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: api-gateway-prod
+    - podSelector:
+        matchLabels:
+          app: api-gateway
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow traffic from other microservices
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: microservices-prod
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow health check traffic from kube-system (for load balancers)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow DNS resolution
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow database access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: auth-service-prod
+    - podSelector:
+        matchLabels:
+          app: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Redis access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: microservices-prod
+    - podSelector:
+        matchLabels:
+          app: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow Keycloak access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: microservices-prod
+    - podSelector:
+        matchLabels:
+          app: keycloak
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow HTTPS outbound for external APIs
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443

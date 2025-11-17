@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts
+  namespace: monitoring
+data:
+  alert_rules.yml: |
+    groups:
+      - name: ms-customer.alerts
+        rules:
+          # JVM Memory Alerts
+          - alert: MSCustomerHighJVMMemoryUsage
+            expr: (jvm_memory_used_bytes{area="heap", kubernetes_namespace="customer-service"} /
+                   jvm_memory_max_bytes{area="heap", kubernetes_namespace="customer-service"}) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-customer
+            annotations:
+              summary: "MS-Customer High JVM memory usage"
+              description: "JVM heap memory usage is above 85% for more than 5 minutes"
+
+          # CPU Usage Alerts
+          - alert: MSCustomerHighCPUUsage
+            expr: rate(container_cpu_usage_seconds_total{pod=~"ms-customer-.*"}[5m]) * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-customer
+            annotations:
+              summary: "MS-Customer High CPU usage detected"
+              description: "Container CPU usage is above 80% for more than 5 minutes"
+
+          # Error Rate Alerts
+          - alert: MSCustomerHighErrorRate
+            expr: |
+              rate(http_server_requests_seconds_count{kubernetes_namespace="customer-service", status=~"5.."}[5m]) /
+              rate(http_server_requests_seconds_count{kubernetes_namespace="customer-service"}[5m]) * 100 > 5
+            for: 2m
+            labels:
+              severity: critical
+              service: ms-customer
+            annotations:
+              summary: "MS-Customer High 5xx error rate"
+              description: "5xx error rate is above 5% for more than 2 minutes"
+
+          # High Response Time Alert
+          - alert: MSCustomerSlowResponseTime
+            expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{kubernetes_namespace="customer-service"}[5m])) > 2
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-customer
+            annotations:
+              summary: "MS-Customer Slow response time"
+              description: "95th percentile response time is above 2 seconds for more than 5 minutes"
+
+          # Thread Count Alert
+          - alert: MSCustomerHighThreadCount
+            expr: jvm_threads_live_threads{kubernetes_namespace="customer-service"} > 200
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-customer
+            annotations:
+              summary: "MS-Customer High thread count"
+              description: "Live thread count is above 200 for more than 5 minutes"
+
+          # MongoDB Connection Pool Alerts
+          - alert: MongoDBHighConnectionCount
+            expr: mongodb_connections{state="current",service="mongodb"} > 80
+            for: 5m
+            labels:
+              severity: warning
+              service: mongodb
+            annotations:
+              summary: "MongoDB High connection count"
+              description: "MongoDB active connections are above 80 for more than 5 minutes"
+
+          # MongoDB Memory Usage Alert
+          - alert: MongoDBHighMemoryUsage
+            expr: mongodb_memory{type="resident",service="mongodb"} / mongodb_memory{type="virtual",service="mongodb"} * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+              service: mongodb
+            annotations:
+              summary: "MongoDB High memory usage"
+              description: "MongoDB resident memory usage is above 85% for more than 5 minutes"
+
+          # MongoDB Replication Lag Alert
+          - alert: MongoDBReplicationLag
+            expr: mongodb_replset_member_optime_date{service="mongodb"} - mongodb_replset_member_optime_date{state="PRIMARY",service="mongodb"} > 30
+            for: 5m
+            labels:
+              severity: critical
+              service: mongodb
+            annotations:
+              summary: "MongoDB Replication lag detected"
+              description: "MongoDB replica set member lag is above 30 seconds for more than 5 minutes"

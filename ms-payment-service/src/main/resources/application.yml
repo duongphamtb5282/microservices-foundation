@@ -1,0 +1,148 @@
+spring:
+  application:
+    name: ms-payment-service
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payments_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+    show-sql: false
+    open-in-view: false
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.xml
+    default-schema: public
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: payment-service-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+# Kafka Configuration (backend-core messaging)
+kafka:
+  enabled: true  # Enable/disable Kafka messaging
+  cqrs:
+    enabled: true
+  retry:
+    maxAttempts: 3
+    initial-backoff: 1s
+    backoff-multiplier: 2.0
+    enableDlq: true
+    dlqTopicSuffix: ".dlq"
+  monitoring:
+    enabled: true
+
+# Cache Configuration (backend-core caching)
+cache:
+  enabled: true  # Enable/disable caching infrastructure
+        metrics-enabled: true
+
+# Payment Service Configuration
+payment:
+  messaging:
+    order-events-topic: "order.events"
+    payment-events-topic: "payment.events"
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8083}
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+# Management & Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  
+  # HTTP Server Metrics with Correlation ID
+  metrics:
+    web:
+      server:
+        request:
+          attributes:
+            correlationId:
+              enabled: true
+          auto-time-requests: true
+        server:
+          request:
+            exceptions: true
+      client:
+        request:
+          attributes:
+            correlationId:
+              enabled: true
+          auto-time-requests: true
+        client:
+          tags:
+            service: ${spring.application.name}
+    
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:local}
+    
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+      sla:
+        http.server.requests:
+          - 100
+          - 250
+          - 500
+          - 1000
+
+# Distributed Tracing
+spring:
+  sleuth:
+    sampler:
+      probability: 1.0  # Sample 100% of traces for development
+    zipkin:
+      enabled: true
+      endpoint: http://localhost:9411/api/v2/spans
+
+# Logging with correlation ID
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+  level:
+    com.pacific.payment: INFO
+    org.springframework.web: INFO
+    io.micrometer: INFO
+

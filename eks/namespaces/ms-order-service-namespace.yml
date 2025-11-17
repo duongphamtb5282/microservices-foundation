@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ms-order-service-prod
+  labels:
+    environment: production
+    service: ms-order-service
+    managed-by: kubectl
+    # EKS specific labels
+    app.kubernetes.io/managed-by: eks
+    eks.amazonaws.com/environment: production
+    eks.amazonaws.com/service: ms-order-service
+  annotations:
+    description: "Order Service production namespace on EKS"
+    eks.amazonaws.com/description: "Order service production environment"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: ms-order-service-quota
+  namespace: ms-order-service-prod
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    persistentvolumeclaims: "5"
+    services.loadbalancers: "2"
+    pods: "10"
+    secrets: "20"
+    configmaps: "20"
+    services: "10"

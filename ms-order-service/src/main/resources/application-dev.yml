@@ -1,0 +1,25 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders_db
+    username: postgres
+    password: postgres
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  jpa:
+    show-sql: true
+
+services:
+  auth-service:
+    url: http://localhost:8082
+
+logging:
+  level:
+    root: INFO
+    com.pacific.order: DEBUG
+    com.pacific.core: DEBUG
+    org.springframework.kafka: DEBUG
+    org.hibernate.SQL: DEBUG
+    feign: DEBUG
+

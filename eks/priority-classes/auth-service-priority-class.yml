@@ -1,0 +1,40 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: auth-service-priority
+  labels:
+    app: auth-service
+    environment: production
+value: 1000
+globalDefault: false
+description: "Priority class for auth service pods - critical authentication service"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: microservices-high-priority
+  labels:
+    environment: production
+value: 800
+globalDefault: false
+description: "High priority class for critical microservices"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: microservices-medium-priority
+  labels:
+    environment: production
+value: 500
+globalDefault: false
+description: "Medium priority class for standard microservices"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: microservices-low-priority
+  labels:
+    environment: production
+value: 100
+globalDefault: false
+description: "Low priority class for non-critical microservices"

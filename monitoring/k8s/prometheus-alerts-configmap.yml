@@ -1,0 +1,189 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts
+  namespace: monitoring
+  labels:
+    app: prometheus
+data:
+  alerts.yml: |
+    groups:
+      - name: microservices.alerts
+        interval: 30s
+
+        rules:
+          # ==================== INFRASTRUCTURE ALERTS ====================
+
+          # Service Down Alerts
+          - alert: ServiceDown
+            expr: up == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: "{{ $labels.job }}"
+            annotations:
+              summary: "Service {{ $labels.job }} is down"
+              description: "Service {{ $labels.job }} has been down for more than 2 minutes"
+
+          # High CPU Usage
+          - alert: HighCPUUsage
+            expr: rate(container_cpu_usage_seconds_total[5m]) * 100 > 80
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage detected"
+              description: "CPU usage is above 80% for more than 5 minutes"
+
+          # High Memory Usage
+          - alert: HighMemoryUsage
+            expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) * 100 > 90
+            for: 3m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage detected"
+              description: "Memory usage is above 90% for more than 3 minutes"
+
+          # ==================== BUSINESS ALERTS ====================
+
+          # Low Payment Success Rate
+          - alert: LowPaymentSuccessRate
+            expr: |
+              rate(business_payments_processed_total{successful="true"}[10m]) /
+              rate(business_payments_processed_total[10m]) * 100 < 90
+            for: 5m
+            labels:
+              severity: critical
+              alert_type: business_kpi
+            annotations:
+              summary: "Payment success rate below threshold"
+              description: "Payment success rate has dropped below 90% for more than 5 minutes"
+
+          # High Order Cancellation Rate
+          - alert: HighOrderCancellationRate
+            expr: |
+              rate(business_orders_cancelled_total[10m]) /
+              (rate(business_orders_created_total[10m]) + rate(business_orders_cancelled_total[10m])) * 100 > 20
+            for: 5m
+            labels:
+              severity: warning
+              alert_type: business_kpi
+            annotations:
+              summary: "High order cancellation rate"
+              description: "Order cancellation rate has exceeded 20% for more than 5 minutes"
+
+          # Low Cache Hit Rate
+          - alert: LowCacheHitRate
+            expr: |
+              rate(cache_gets_total{cache="order-details",result="hit"}[5m]) /
+              rate(cache_gets_total{cache="order-details"}[5m]) * 100 < 80
+            for: 10m
+            labels:
+              severity: warning
+              alert_type: performance
+            annotations:
+              summary: "Low cache hit rate"
+              description: "Cache hit rate for order-details has dropped below 80% for more than 10 minutes"
+
+          # ==================== SECURITY ALERTS ====================
+
+          # Circuit Breaker Open
+          - alert: CircuitBreakerOpen
+            expr: resilience4j_circuitbreaker_state{circuitbreaker=~"auth-service|order-service|payment-service"} == 1
+            for: 1m
+            labels:
+              severity: critical
+              alert_type: resilience
+            annotations:
+              summary: "Circuit breaker is OPEN"
+              description: "Circuit breaker for {{ $labels.circuitbreaker }} has been open for more than 1 minute"
+
+          # High Authentication Failure Rate
+          - alert: HighAuthFailureRate
+            expr: |
+              rate(http_server_requests_seconds_count{status="401",uri="/api/v1/auth/**"}[5m]) /
+              rate(http_server_requests_seconds_count{uri="/api/v1/auth/**"}[5m]) * 100 > 10
+            for: 3m
+            labels:
+              severity: high
+              alert_type: security
+            annotations:
+              summary: "High authentication failure rate"
+              description: "Authentication failure rate has exceeded 10% for more than 3 minutes"
+
+          # Suspicious Activity
+          - alert: SuspiciousActivity
+            expr: security_suspicious_activities_total > 0
+            for: 1m
+            labels:
+              severity: critical
+              alert_type: security
+            annotations:
+              summary: "Suspicious activity detected"
+              description: "Suspicious security activities have been detected"
+
+          # ==================== PERFORMANCE ALERTS ====================
+
+          # High Response Time
+          - alert: HighResponseTime
+            expr: |
+              histogram_quantile(0.95, rate(http_server_requests_seconds_bucket[5m])) > 2.0
+            for: 5m
+            labels:
+              severity: warning
+              alert_type: performance
+            annotations:
+              summary: "High response time"
+              description: "95th percentile response time has exceeded 2 seconds for more than 5 minutes"
+
+          # High Database Query Time
+          - alert: SlowDatabaseQueries
+            expr: |
+              histogram_quantile(0.95, rate(performance_database_query_time_bucket[5m])) > 0.5
+            for: 3m
+            labels:
+              severity: warning
+              alert_type: performance
+            annotations:
+              summary: "Slow database queries"
+              description: "95th percentile database query time has exceeded 500ms for more than 3 minutes"
+
+          # Kafka Consumer Lag
+          - alert: HighKafkaConsumerLag
+            expr: kafka_consumer_records_lag > 1000
+            for: 5m
+            labels:
+              severity: warning
+              alert_type: messaging
+            annotations:
+              summary: "High Kafka consumer lag"
+              description: "Kafka consumer lag has exceeded 1000 messages for more than 5 minutes"
+
+          # ==================== AVAILABILITY ALERTS ====================
+
+          # Service Unavailable
+          - alert: ServiceUnavailable
+            expr: |
+              rate(http_server_requests_seconds_count{status="503"}[5m]) /
+              rate(http_server_requests_seconds_count[5m]) * 100 > 5
+            for: 2m
+            labels:
+              severity: critical
+              alert_type: availability
+            annotations:
+              summary: "Service unavailable"
+              description: "Service unavailable rate has exceeded 5% for more than 2 minutes"
+
+          # Database Connection Issues
+          - alert: DatabaseConnectionIssues
+            expr: |
+              rate(performance_database_query_failed_total[5m]) /
+              rate(performance_database_query_count_total[5m]) * 100 > 10
+            for: 3m
+            labels:
+              severity: critical
+              alert_type: database
+            annotations:
+              summary: "Database connection issues"
+              description: "Database query failure rate has exceeded 10% for more than 3 minutes"

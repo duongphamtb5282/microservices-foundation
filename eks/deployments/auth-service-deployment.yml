@@ -1,0 +1,286 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: auth-service-prod
+  labels:
+    app: auth-service
+    version: "1.0.0"
+    environment: production
+    service: auth-service
+    # EKS specific labels
+    app.kubernetes.io/name: auth-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: authentication
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: "1.0.0"
+        environment: production
+        service: auth-service
+        # EKS specific labels
+        app.kubernetes.io/name: auth-service
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: authentication
+        app.kubernetes.io/part-of: microservices
+        app.kubernetes.io/managed-by: eks
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+        # EKS specific annotations
+        eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT-ID:role/auth-service-eks-role"
+        # Pod disruption budget annotation
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    spec:
+      serviceAccountName: auth-service-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 2000
+        fsGroup: 2000
+      containers:
+      - name: auth-service
+        image: your-registry/auth-service:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_APPLICATION_NAME
+          value: "auth-service"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secrets
+              key: db-url
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secrets
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: auth-db-secrets
+              key: password
+        - name: REDIS_HOST
+          value: "redis.microservices-prod.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: KEYCLOAK_URL
+          value: "http://keycloak.microservices-prod.svc.cluster.local:8080"
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-secrets
+              key: encryption-key
+        # Tracing configuration
+        - name: SPRING_ZIPKIN_BASE_URL
+          value: "http://zipkin.microservices-prod.svc.cluster.local:9411"
+        - name: SPRING_SLEUTH_SAMPLER_PROBABILITY
+          value: "0.1"
+        - name: MANAGEMENT_TRACING_SAMPLING_PROBABILITY
+          value: "0.1"
+        # APM configuration
+        - name: ELASTIC_APM_SERVER_URLS
+          value: "http://apm-server.microservices-prod.svc.cluster.local:8200"
+        - name: ELASTIC_APM_SERVICE_NAME
+          value: "auth-service"
+        - name: ELASTIC_APM_ENVIRONMENT
+          value: "production"
+        - name: ELASTIC_APM_APPLICATION_PACKAGES
+          value: "com.pacific.auth"
+        # Resilience configuration
+        - name: RESILIENCE4J_CIRCUITBREAKER_INSTANCES_DEFAULT_FAILURE_RATE_THRESHOLD
+          value: "50"
+        - name: RESILIENCE4J_CIRCUITBREAKER_INSTANCES_DEFAULT_WAIT_DURATION_IN_OPEN_STATE
+          value: "30s"
+        - name: RESILIENCE4J_CIRCUITBREAKER_INSTANCES_DEFAULT_SLIDING_WINDOW_SIZE
+          value: "10"
+        - name: RESILIENCE4J_RETRY_INSTANCES_DEFAULT_MAX_ATTEMPTS
+          value: "3"
+        - name: RESILIENCE4J_RETRY_INSTANCES_DEFAULT_WAIT_DURATION
+          value: "1s"
+        # Graceful shutdown
+        - name: SERVER_SHUTDOWN
+          value: "graceful"
+        - name: SPRING_LIFECYCLE_TIMEOUT_PER_SHUTDOWN_PHASE
+          value: "30s"
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+UnlockExperimentalVMOptions -XX:+UseCGroupMemoryLimitForHeap -XX:+UseStringDeduplication -XX:G1HeapRegionSize=16m -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -Djava.security.egd=file:/dev/./urandom -Dspring.jmx.enabled=false"
+        - name: JVM_MEMORY_OPTS
+          value: "-XX:NativeMemoryTracking=summary -XX:+PrintGCDetails -XX:+PrintGCTimeStamps -XX:+PrintGCApplicationStoppedTime -Xloggc:/app/logs/gc.log -XX:+UseGCLogFileRotation -XX:NumberOfGCLogFiles=5 -XX:GCLogFileSize=10M"
+        resources:
+          requests:
+            memory: "768Mi"
+            cpu: "300m"
+            ephemeral-storage: "1Gi"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+            ephemeral-storage: "2Gi"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 45
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+            httpHeaders:
+            - name: Accept
+              value: application/json
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 60
+          timeoutSeconds: 5
+          successThreshold: 1
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: logging-config
+          mountPath: /app/config/logback-spring.xml
+          subPath: logback-spring.xml
+          readOnly: true
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      - name: config-volume
+        configMap:
+          name: auth-service-config
+          defaultMode: 0644
+      - name: logging-config
+        configMap:
+          name: auth-service-logging-config
+          defaultMode: 0644
+      # Node affinity for cost optimization with spot instances
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # Prefer spot instances for cost savings
+          - weight: 80
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values:
+                - SPOT
+          # Fallback to on-demand if spot not available
+          - weight: 20
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values:
+                - ON_DEMAND
+          # Prefer compute-optimized instances for auth workload
+          - weight: 60
+            preference:
+              matchExpressions:
+              - key: node.kubernetes.io/instance-type
+                operator: In
+                values:
+                - c5.large
+                - c5.xlarge
+                - c5a.large
+                - c5a.xlarge
+        # Pod anti-affinity to spread across nodes and AZs
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - auth-service
+              topologyKey: kubernetes.io/hostname
+          - weight: 80
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - auth-service
+              topologyKey: topology.kubernetes.io/zone
+      # Tolerations for spot instances
+      tolerations:
+      - key: "eks.amazonaws.com/capacityType"
+        operator: "Equal"
+        value: "SPOT"
+        effect: "NoSchedule"
+      - key: "kubernetes.azure.com/scalesetpriority"
+        operator: "Equal"
+        value: "spot"
+        effect: "NoSchedule"
+      # Priority class for better scheduling
+      priorityClassName: "auth-service-priority"
+      # Topology spread constraints for better distribution
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: auth-service
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: auth-service

@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts-ms-order
+  namespace: monitoring
+data:
+  alert_rules.yml: |
+    groups:
+      - name: ms-order-service.alerts
+        rules:
+          # JVM Memory Alerts
+          - alert: MSOrderServiceHighJVMMemoryUsage
+            expr: (jvm_memory_used_bytes{area="heap", kubernetes_namespace="ms-order-service-prod"} /
+                   jvm_memory_max_bytes{area="heap", kubernetes_namespace="ms-order-service-prod"}) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service High JVM memory usage"
+              description: "JVM heap memory usage is above 85% for MS-Order Service"
+
+          - alert: MSOrderServiceCriticalJVMMemoryUsage
+            expr: (jvm_memory_used_bytes{area="heap", kubernetes_namespace="ms-order-service-prod"} /
+                   jvm_memory_max_bytes{area="heap", kubernetes_namespace="ms-order-service-prod"}) * 100 > 95
+            for: 2m
+            labels:
+              severity: critical
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service Critical JVM memory usage"
+              description: "JVM heap memory usage is above 95% for MS-Order Service"
+
+          # Service Availability Alerts
+          - alert: MSOrderServiceDown
+            expr: up{kubernetes_namespace="ms-order-service-prod", app="ms-order-service"} == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service is down"
+              description: "MS-Order Service has been down for more than 2 minutes"
+
+          # HTTP Error Rate Alerts
+          - alert: MSOrderServiceHighErrorRate
+            expr: rate(http_server_requests_seconds_count{status=~"5..", kubernetes_namespace="ms-order-service-prod"}[5m]) /
+                   rate(http_server_requests_seconds_count{kubernetes_namespace="ms-order-service-prod"}[5m]) * 100 > 5
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service High Error Rate"
+              description: "MS-Order Service error rate is above 5% for the last 5 minutes"
+
+          # Database Connection Pool Alerts
+          - alert: MSOrderServiceDBConnectionPoolExhausted
+            expr: hikari_active_connections{kubernetes_namespace="ms-order-service-prod"} /
+                   hikari_total_connections{kubernetes_namespace="ms-order-service-prod"} > 0.9
+            for: 3m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service DB Connection Pool Near Exhaustion"
+              description: "Database connection pool usage is above 90%"
+
+          # Kafka Consumer Lag Alerts
+          - alert: MSOrderServiceHighKafkaLag
+            expr: kafka_consumer_lag{kubernetes_namespace="ms-order-service-prod"} > 1000
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service High Kafka Consumer Lag"
+              description: "Kafka consumer lag is above 1000 messages"
+
+          # Business Logic Alerts
+          - alert: MSOrderServiceOrderCreationFailures
+            expr: rate(order_creation_total{status="failure", kubernetes_namespace="ms-order-service-prod"}[5m]) /
+                   rate(order_creation_total{kubernetes_namespace="ms-order-service-prod"}[5m]) * 100 > 10
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service Order Creation Failures"
+              description: "Order creation failure rate is above 10%"
+
+          # Response Time Alerts
+          - alert: MSOrderServiceSlowResponseTime
+            expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{kubernetes_namespace="ms-order-service-prod"}[5m])) > 2
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-order-service
+            annotations:
+              summary: "MS-Order Service Slow Response Time"
+              description: "95th percentile response time is above 2 seconds"

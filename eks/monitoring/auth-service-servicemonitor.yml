@@ -1,0 +1,165 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auth-service-monitor
+  namespace: auth-service-prod
+  labels:
+    app: auth-service
+    environment: production
+    monitoring: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: auth-service
+  endpoints:
+  - port: http
+    path: /actuator/prometheus
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'jvm_.*'
+      targetLabel: service
+      replacement: 'auth-service'
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-logging-config
+  namespace: auth-service-prod
+  labels:
+    app: auth-service
+    environment: production
+data:
+  logback-spring.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <configuration>
+        <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+        
+        <!-- Console appender for development -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <arguments/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- File appender for persistent logging -->
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/app/logs/auth-service.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>/app/logs/auth-service.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+                <maxFileSize>100MB</maxFileSize>
+                <maxHistory>30</maxHistory>
+                <totalSizeCap>3GB</totalSizeCap>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                    <arguments/>
+                    <stackTrace/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- Async appender for better performance -->
+        <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+            <appender-ref ref="FILE"/>
+            <queueSize>1024</queueSize>
+            <discardingThreshold>0</discardingThreshold>
+            <includeCallerData>false</includeCallerData>
+        </appender>
+        
+        <!-- Security audit appender -->
+        <appender name="SECURITY_AUDIT" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <file>/app/logs/security-audit.log</file>
+            <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+                <fileNamePattern>/app/logs/security-audit.%d{yyyy-MM-dd}.log</fileNamePattern>
+                <maxHistory>90</maxHistory>
+            </rollingPolicy>
+            <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+                <providers>
+                    <timestamp/>
+                    <logLevel/>
+                    <loggerName/>
+                    <message/>
+                    <mdc/>
+                </providers>
+            </encoder>
+        </appender>
+        
+        <!-- Logger configurations -->
+        <logger name="com.pacific.auth" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </logger>
+        
+        <logger name="com.pacific.auth.security" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="SECURITY_AUDIT"/>
+        </logger>
+        
+        <logger name="org.springframework.security" level="WARN"/>
+        <logger name="org.hibernate.SQL" level="DEBUG"/>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE"/>
+        
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="ASYNC_FILE"/>
+        </root>
+    </configuration>
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service-alerts
+  namespace: auth-service-prod
+  labels:
+    app: auth-service
+    environment: production
+data:
+  alerts.yml: |
+    groups:
+    - name: auth-service-alerts
+      rules:
+      - alert: AuthServiceHighErrorRate
+        expr: rate(http_server_requests_seconds_count{job="auth-service",status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "High error rate in auth service"
+          description: "Auth service error rate is {{ $value }} errors per second"
+      
+      - alert: AuthServiceHighLatency
+        expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{job="auth-service"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "High latency in auth service"
+          description: "95th percentile latency is {{ $value }} seconds"
+      
+      - alert: AuthServiceDatabaseConnectionFailure
+        expr: hikaricp_connections_active{job="auth-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Database connection failure"
+          description: "Auth service has no active database connections"

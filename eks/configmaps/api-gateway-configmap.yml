@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-gateway-config
+  namespace: api-gateway-prod
+  labels:
+    app: api-gateway
+    service: api-gateway
+    environment: production
+    # EKS specific labels
+    app.kubernetes.io/name: api-gateway
+    app.kubernetes.io/component: gateway
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  data:
+    application-prod.yml: |
+      spring:
+        application:
+          name: api-gateway
+        profiles:
+          active: prod
+        cloud:
+          gateway:
+            routes:
+            - id: auth-service
+              uri: http://auth-service.auth-service-prod.svc.cluster.local:8080
+              predicates:
+              - Path=/auth/**
+              filters:
+              - StripPrefix=1
+            - id: customer-service
+              uri: http://ms-customer.ms-customer-prod.svc.cluster.local:8084
+              predicates:
+              - Path=/customers/**
+              filters:
+              - StripPrefix=1
+            - id: order-service
+              uri: http://ms-order-service.ms-order-service-prod.svc.cluster.local:8081
+              predicates:
+              - Path=/orders/**
+              filters:
+              - StripPrefix=1
+            - id: payment-service
+              uri: http://ms-payment-service.ms-payment-service-prod.svc.cluster.local:8080
+              predicates:
+              - Path=/payments/**
+              filters:
+              - StripPrefix=1
+            globalcors:
+              cors-configurations:
+                '[/**]':
+                  allowedOriginPatterns: ["*"]
+                  allowedMethods: ["*"]
+                  allowedHeaders: ["*"]
+                  allowCredentials: true
+            default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_FIRST
+
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,metrics,prometheus,gateway
+        metrics:
+          export:
+            prometheus:
+              enabled: true
+        endpoint:
+          health:
+            show-details: when_authorized
+          gateway:
+            enabled: true
+
+      logging:
+        level:
+          root: INFO
+          org.springframework.cloud.gateway: DEBUG
+          reactor.netty: INFO

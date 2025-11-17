@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microservices-prod
+  labels:
+    environment: production
+    managed-by: kubectl
+    # EKS specific labels
+    app.kubernetes.io/managed-by: eks
+    eks.amazonaws.com/environment: production
+  annotations:
+    description: "Production namespace for microservices on EKS"
+    # EKS specific annotations for better integration
+    eks.amazonaws.com/description: "Microservices production environment"
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: microservices-prod-quota
+  namespace: microservices-prod
+spec:
+  hard:
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "16"
+    limits.memory: 32Gi
+    persistentvolumeclaims: "20"
+    services.loadbalancers: "10"
+    # EKS specific resource limits
+    pods: "50"
+    secrets: "100"
+    configmaps: "100"
+    services: "30"
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: microservices-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal-traffic
+  namespace: microservices-prod
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          environment: production
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          environment: production
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443  # Allow HTTPS outbound for external APIs
+    - protocol: TCP
+      port: 80   # Allow HTTP outbound for external APIs
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-monitoring
+  namespace: microservices-prod
+spec:
+  podSelector: {}
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8081
+    - protocol: TCP
+      port: 8082
+    - protocol: TCP
+      port: 8084
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    ports:
+    - protocol: TCP
+      port: 9090  # Prometheus scraping
+  policyTypes:
+  - Ingress

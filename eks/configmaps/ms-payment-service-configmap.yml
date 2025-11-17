@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ms-payment-service-config
+  namespace: ms-payment-service-prod
+  labels:
+    app: ms-payment-service
+    service: ms-payment-service
+    environment: production
+    # EKS specific labels
+    app.kubernetes.io/name: ms-payment-service
+    app.kubernetes.io/component: payment-service
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  data:
+    application-prod.yml: |
+      spring:
+        application:
+          name: ms-payment-service
+        profiles:
+          active: prod
+        datasource:
+          url: ${DB_URL}
+          username: ${DB_USERNAME}
+          password: ${DB_PASSWORD}
+          driver-class-name: org.postgresql.Driver
+          hikari:
+            maximum-pool-size: 10
+            minimum-idle: 5
+            connection-timeout: 30000
+            idle-timeout: 600000
+            max-lifetime: 1800000
+        jpa:
+          hibernate:
+            ddl-auto: validate
+            show-sql: false
+            properties:
+              hibernate:
+                dialect: org.hibernate.dialect.PostgreSQLDialect
+                format_sql: true
+                jdbc:
+                  time_zone: UTC
+        kafka:
+          bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+          consumer:
+            group-id: payment-service
+            auto-offset-reset: earliest
+            properties:
+              spring.json.trusted.packages: "com.pacific.payment.domain.event"
+          producer:
+            acks: all
+            retries: 3
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        data:
+          redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT}
+            timeout: 2000ms
+        security:
+          oauth2:
+            resourceserver:
+              jwt:
+                issuer-uri: ${AUTH_SERVICE_URL}/realms/microservices
+
+      payment:
+        gateway:
+          url: ${PAYMENT_GATEWAY_URL}
+          api-key: ${PAYMENT_GATEWAY_API_KEY}
+          timeout: 30000
+          retry:
+            max-attempts: 3
+            backoff-multiplier: 2.0
+        encryption:
+          enabled: true
+          algorithm: AES
+          key-size: 256
+        events:
+          payment-processed:
+            topic: payment.events
+          payment-failed:
+            topic: payment.events
+          payment-refunded:
+            topic: payment.events
+
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,metrics,prometheus
+        metrics:
+          export:
+            prometheus:
+              enabled: true
+        endpoint:
+          health:
+            show-details: when_authorized
+
+      logging:
+        level:
+          root: INFO
+          com.pacific.payment: DEBUG

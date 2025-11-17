@@ -1,0 +1,57 @@
+# Sample service annotations for Prometheus scraping
+# Add these annotations to your microservice deployments
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: your-service-name
+spec:
+  template:
+    metadata:
+      annotations:
+        # Enable Prometheus scraping
+        prometheus.io/scrape: "true"
+        # Metrics endpoint path
+        prometheus.io/path: "/actuator/prometheus"
+        # Service port
+        prometheus.io/port: "8080"
+        # Scrape interval (optional, defaults to global)
+        prometheus.io/scrape_interval: "10s"
+      labels:
+        # Labels for metric tagging
+        app: your-service-name
+        version: "1.0.0"
+        environment: production
+    spec:
+      containers:
+      - name: your-service
+        ports:
+        - containerPort: 8080
+          name: http
+        # Ensure actuator endpoints are exposed
+        env:
+        - name: MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE
+          value: "prometheus,health,info,metrics"
+        - name: MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED
+          value: "true"
+        # Resource limits for monitoring
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        # Health checks
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10

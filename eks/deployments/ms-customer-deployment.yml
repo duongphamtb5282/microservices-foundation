@@ -1,0 +1,160 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-customer
+  namespace: ms-customer-prod
+  labels:
+    app: ms-customer
+    version: "1.0.0"
+    environment: production
+    service: ms-customer
+    # EKS specific labels
+    app.kubernetes.io/name: ms-customer
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: customer-service
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ms-customer
+  template:
+    metadata:
+      labels:
+        app: ms-customer
+        version: "1.0.0"
+        environment: production
+        service: ms-customer
+        # EKS specific labels
+        app.kubernetes.io/name: ms-customer
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: customer-service
+        app.kubernetes.io/part-of: microservices
+        app.kubernetes.io/managed-by: eks
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/actuator/prometheus"
+        # EKS specific annotations
+        eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT-ID:role/ms-customer-eks-role"
+        # Pod disruption budget annotation
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    spec:
+      serviceAccountName: ms-customer-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 2000
+        fsGroup: 2000
+      containers:
+      - name: ms-customer
+        image: your-registry/ms-customer:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8084
+          name: http
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_APPLICATION_NAME
+          value: "ms-customer"
+        - name: SERVER_PORT
+          value: "8084"
+        - name: SPRING_DATA_MONGODB_URI
+          valueFrom:
+            secretKeyRef:
+              name: customer-db-secrets
+              key: mongodb-uri
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka.microservices-prod.svc.cluster.local:9092"
+        - name: SPRING_DATA_REDIS_HOST
+          value: "redis.microservices-prod.svc.cluster.local"
+        - name: SPRING_DATA_REDIS_PORT
+          value: "6379"
+        - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+          value: "http://auth-service-prod.auth-service-prod.svc.cluster.local:8080"
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-secrets
+              key: encryption-key
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8084
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8084
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8084
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 30
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      # Node affinity for better performance and cost optimization
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values:
+                - ON_DEMAND
+      # Pod anti-affinity to spread across nodes
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - ms-customer
+            topologyKey: kubernetes.io/hostname

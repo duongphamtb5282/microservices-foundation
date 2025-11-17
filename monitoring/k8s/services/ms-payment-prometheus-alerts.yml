@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-alerts-ms-payment
+  namespace: monitoring
+data:
+  alert_rules.yml: |
+    groups:
+      - name: ms-payment-service.alerts
+        rules:
+          # JVM Memory Alerts
+          - alert: MSPaymentServiceHighJVMMemoryUsage
+            expr: (jvm_memory_used_bytes{area="heap", kubernetes_namespace="ms-payment-service-prod"} /
+                   jvm_memory_max_bytes{area="heap", kubernetes_namespace="ms-payment-service-prod"}) * 100 > 85
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service High JVM memory usage"
+              description: "JVM heap memory usage is above 85% for MS-Payment Service"
+
+          - alert: MSPaymentServiceCriticalJVMMemoryUsage
+            expr: (jvm_memory_used_bytes{area="heap", kubernetes_namespace="ms-payment-service-prod"} /
+                   jvm_memory_max_bytes{area="heap", kubernetes_namespace="ms-payment-service-prod"}) * 100 > 95
+            for: 2m
+            labels:
+              severity: critical
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service Critical JVM memory usage"
+              description: "JVM heap memory usage is above 95% for MS-Payment Service"
+
+          # Service Availability Alerts
+          - alert: MSPaymentServiceDown
+            expr: up{kubernetes_namespace="ms-payment-service-prod", app="ms-payment-service"} == 0
+            for: 2m
+            labels:
+              severity: critical
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service is down"
+              description: "MS-Payment Service has been down for more than 2 minutes"
+
+          # HTTP Error Rate Alerts
+          - alert: MSPaymentServiceHighErrorRate
+            expr: rate(http_server_requests_seconds_count{status=~"5..", kubernetes_namespace="ms-payment-service-prod"}[5m]) /
+                   rate(http_server_requests_seconds_count{kubernetes_namespace="ms-payment-service-prod"}[5m]) * 100 > 5
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service High Error Rate"
+              description: "MS-Payment Service error rate is above 5% for the last 5 minutes"
+
+          # Database Connection Pool Alerts
+          - alert: MSPaymentServiceDBConnectionPoolExhausted
+            expr: hikari_active_connections{kubernetes_namespace="ms-payment-service-prod"} /
+                   hikari_total_connections{kubernetes_namespace="ms-payment-service-prod"} > 0.9
+            for: 3m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service DB Connection Pool Near Exhaustion"
+              description: "Database connection pool usage is above 90%"
+
+          # Kafka Consumer Lag Alerts
+          - alert: MSPaymentServiceHighKafkaLag
+            expr: kafka_consumer_lag{kubernetes_namespace="ms-payment-service-prod"} > 1000
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service High Kafka Consumer Lag"
+              description: "Kafka consumer lag is above 1000 messages"
+
+          # Payment Processing Alerts
+          - alert: MSPaymentServicePaymentProcessingFailures
+            expr: rate(payment_processing_total{status="failure", kubernetes_namespace="ms-payment-service-prod"}[5m]) /
+                   rate(payment_processing_total{kubernetes_namespace="ms-payment-service-prod"}[5m]) * 100 > 5
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service Payment Processing Failures"
+              description: "Payment processing failure rate is above 5%"
+
+          - alert: MSPaymentServicePaymentGatewayTimeout
+            expr: rate(payment_gateway_timeout_total{kubernetes_namespace="ms-payment-service-prod"}[5m]) > 10
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service Payment Gateway Timeouts"
+              description: "Payment gateway timeouts exceed 10 per minute"
+
+          # Response Time Alerts
+          - alert: MSPaymentServiceSlowResponseTime
+            expr: histogram_quantile(0.95, rate(http_server_requests_seconds_bucket{kubernetes_namespace="ms-payment-service-prod"}[5m])) > 3
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service Slow Response Time"
+              description: "95th percentile response time is above 3 seconds"
+
+          # Security Alerts
+          - alert: MSPaymentServiceSuspiciousPaymentAttempts
+            expr: rate(suspicious_payment_attempts_total{kubernetes_namespace="ms-payment-service-prod"}[5m]) > 50
+            for: 5m
+            labels:
+              severity: warning
+              service: ms-payment-service
+            annotations:
+              summary: "MS-Payment Service Suspicious Payment Attempts"
+              description: "High rate of suspicious payment attempts detected"

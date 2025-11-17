@@ -1,0 +1,136 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.0'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'checkstyle'
+}
+
+group = 'com.pacific'
+version = '1.0.0'
+sourceCompatibility = '21'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Backend Core (includes Kafka wrapper)
+    implementation fileTree(dir: '../backend-core/build/libs', include: '*.jar')
+
+    // Spring Boot
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Database
+    implementation 'org.postgresql:postgresql'
+    implementation 'org.liquibase:liquibase-core'
+
+    // Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    // Lombok
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Micrometer for metrics
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // OpenAPI/Swagger
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+    testImplementation 'com.h2database:h2'
+
+    // TestContainers for integration testing
+    testImplementation 'org.testcontainers:junit-jupiter:1.19.3'
+    testImplementation 'org.testcontainers:postgresql:1.19.3'
+    testImplementation 'org.testcontainers:kafka:1.19.3'
+    testImplementation 'org.testcontainers:testcontainers:1.19.3'
+}
+
+// Spotless configuration for code formatting
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/generated/**', '**/target/**'
+        }
+        googleJavaFormat()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    sql {
+        target fileTree('.') {
+            include '**/*.sql'
+            exclude '**/build/**'
+        }
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    yaml {
+        target fileTree('.') {
+            include '**/*.yml', '**/*.yaml'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    json {
+        target fileTree('.') {
+            include '**/*.json'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    format 'misc', {
+        target '*.md', '*.txt'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration
+checkstyle {
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    showViolations = true
+    maxWarnings = 0
+    maxErrors = 0
+    ignoreFailures = true
+    reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+}
+
+// Code quality tasks
+task codeQuality {
+    group = 'verification'
+    description = 'Runs all code quality checks (formatting, style, tests)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'checkstyleTest', 'test'
+}
+
+// Pre-commit hook task
+task preCommit {
+    group = 'verification'
+    description = 'Runs pre-commit checks (formatting, style, compilation)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'compileJava', 'compileTestJava'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+

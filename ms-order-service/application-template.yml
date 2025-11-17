@@ -1,0 +1,437 @@
+# ==============================================================================
+# APPLICATION CONFIGURATION TEMPLATE
+# ==============================================================================
+# This file serves as a template for configuring the microservices.
+# Copy values to application.yml and customize per environment.
+# Use environment variables for sensitive data.
+# ==============================================================================
+
+# ==============================================================================
+# SPRING BOOT CORE CONFIGURATION
+# ==============================================================================
+spring:
+  application:
+    name: ${SPRING_APPLICATION_NAME:ms-order-service}
+  
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+  
+  # Database Configuration
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/auth_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: ${DB_DRIVER:org.postgresql.Driver}
+    hikari:
+      minimum-idle: ${DB_POOL_MIN_IDLE:2}
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
+      idle-timeout: ${DB_IDLE_TIMEOUT:300000}
+      max-lifetime: ${DB_MAX_LIFETIME:600000}
+      pool-name: ${DB_POOL_NAME:AuthServiceHikariPool}
+  
+  # JPA/Hibernate Configuration
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:validate}
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: ${HIBERNATE_DIALECT:org.hibernate.dialect.PostgreSQLDialect}
+        format_sql: ${HIBERNATE_FORMAT_SQL:true}
+        default_schema: ${DB_SCHEMA:auth}
+        jdbc:
+          batch_size: ${HIBERNATE_BATCH_SIZE:20}
+        order_inserts: ${HIBERNATE_ORDER_INSERTS:true}
+        order_updates: ${HIBERNATE_ORDER_UPDATES:true}
+  
+  # Redis Configuration
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: ${REDIS_DATABASE:0}
+    timeout: ${REDIS_TIMEOUT:2000}
+    lettuce:
+      pool:
+        max-active: ${REDIS_POOL_MAX_ACTIVE:8}
+        max-idle: ${REDIS_POOL_MAX_IDLE:8}
+        min-idle: ${REDIS_POOL_MIN_IDLE:0}
+        max-wait: ${REDIS_POOL_MAX_WAIT:-1}
+  
+  # Kafka Configuration (if needed)
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP_ID:auth-service-consumer-group}
+      auto-offset-reset: ${KAFKA_AUTO_OFFSET_RESET:earliest}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+
+# ==============================================================================
+# SERVER CONFIGURATION
+# ==============================================================================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: ${SERVER_CONTEXT_PATH:/}
+  compression:
+    enabled: ${SERVER_COMPRESSION_ENABLED:true}
+  error:
+    include-message: ${SERVER_ERROR_INCLUDE_MESSAGE:always}
+    include-stacktrace: ${SERVER_ERROR_INCLUDE_STACKTRACE:never}
+
+# ==============================================================================
+# MANAGEMENT & ACTUATOR CONFIGURATION
+# ==============================================================================
+management:
+  endpoints:
+    web:
+      base-path: ${ACTUATOR_BASE_PATH:/actuator}
+      exposure:
+        include: ${ACTUATOR_ENDPOINTS:health,info,metrics,prometheus}
+  endpoint:
+    health:
+      show-details: ${ACTUATOR_HEALTH_SHOW_DETAILS:when-authorized}
+      enabled: ${ACTUATOR_HEALTH_ENABLED:true}
+    info:
+      enabled: ${ACTUATOR_INFO_ENABLED:true}
+    metrics:
+      enabled: ${ACTUATOR_METRICS_ENABLED:true}
+  metrics:
+    export:
+      prometheus:
+        enabled: ${PROMETHEUS_ENABLED:true}
+
+# ==============================================================================
+# LOGGING CONFIGURATION
+# ==============================================================================
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.pacific: ${LOG_LEVEL_APP:DEBUG}
+    com.pacific.auth: ${LOG_LEVEL_AUTH:DEBUG}
+    com.pacific.core: ${LOG_LEVEL_BACKEND_CORE:DEBUG}
+    org.springframework: ${LOG_LEVEL_SPRING:INFO}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:DEBUG}
+    org.hibernate: ${LOG_LEVEL_HIBERNATE:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:DEBUG}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_HIBERNATE_BINDER:TRACE}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:logs/application.log}
+    max-size: ${LOG_FILE_MAX_SIZE:10MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+
+# ==============================================================================
+# OPENAPI/SWAGGER CONFIGURATION
+# ==============================================================================
+openapi:
+  title: ${API_TITLE:Order Service API}
+  description: ${API_DESCRIPTION:Order Management REST API}
+  version: ${API_VERSION:1.0.0}
+  license:
+    name: ${API_LICENSE_NAME:Apache 2.0}
+    url: ${API_LICENSE_URL:https://www.apache.org/licenses/LICENSE-2.0}
+  server-urls:
+    - ${API_SERVER_URL:http://localhost:8081}
+
+springdoc:
+  api-docs:
+    path: ${SPRINGDOC_API_DOCS_PATH:/v3/api-docs}
+    enabled: ${SPRINGDOC_API_DOCS_ENABLED:true}
+  swagger-ui:
+    path: ${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}
+    enabled: ${SPRINGDOC_SWAGGER_UI_ENABLED:true}
+    operationsSorter: ${SPRINGDOC_OPERATIONS_SORTER:method}
+    tagsSorter: ${SPRINGDOC_TAGS_SORTER:alpha}
+
+# ==============================================================================
+# BACKEND-CORE CONFIGURATION
+# ==============================================================================
+backend-core:
+  # Cache Configuration
+  cache:
+    enabled: ${CACHE_ENABLED:true}
+    type: ${CACHE_TYPE:redis}
+    
+    # L1 Cache (Caffeine - In-Memory)
+    l1-cache:
+      enabled: ${L1_CACHE_ENABLED:true}
+      max-size: ${L1_CACHE_MAX_SIZE:1000}
+      ttl: ${L1_CACHE_TTL:15m}
+    
+    # L2 Cache (Redis - Distributed)
+    l2-cache:
+      enabled: ${L2_CACHE_ENABLED:true}
+      ttl: ${L2_CACHE_TTL:30m}
+    
+    # Per-Cache TTL Overrides
+    cache-names:
+      users:
+        ttl: ${CACHE_USERS_TTL:1h}
+      roles:
+        ttl: ${CACHE_ROLES_TTL:2h}
+      tokens:
+        ttl: ${CACHE_TOKENS_TTL:15m}
+      permissions:
+        ttl: ${CACHE_PERMISSIONS_TTL:1h}
+  
+  # Security Configuration
+  security:
+    enabled: ${SECURITY_ENABLED:true}
+    default-auth-mode: ${SECURITY_DEFAULT_AUTH_MODE:jwt}
+    enable-cors: ${SECURITY_ENABLE_CORS:true}
+    enable-csrf: ${SECURITY_ENABLE_CSRF:false}
+    
+    # CORS Configuration
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:4200}
+      allowed-methods: ${CORS_ALLOWED_METHODS:GET,POST,PUT,DELETE,OPTIONS,PATCH}
+      allowed-headers: ${CORS_ALLOWED_HEADERS:*}
+      exposed-headers: ${CORS_EXPOSED_HEADERS:Authorization,Content-Type}
+      allow-credentials: ${CORS_ALLOW_CREDENTIALS:true}
+      max-age: ${CORS_MAX_AGE:3600}
+  
+  # Database Configuration
+  database:
+    enabled: ${DB_ENABLED:true}
+    pool:
+      type: ${DB_POOL_TYPE:hikari}
+      min-idle: ${DB_POOL_MIN_IDLE:2}
+      max-pool-size: ${DB_POOL_MAX_SIZE:10}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:20s}
+      idle-timeout: ${DB_IDLE_TIMEOUT:5m}
+      max-lifetime: ${DB_MAX_LIFETIME:10m}
+    health-check:
+      enabled: ${DB_HEALTH_CHECK_ENABLED:true}
+      timeout: ${DB_HEALTH_CHECK_TIMEOUT:5s}
+  
+  # Monitoring Configuration
+  monitoring:
+    enabled: ${MONITORING_ENABLED:true}
+    enable-health-checks: ${MONITORING_HEALTH_CHECKS_ENABLED:true}
+    enable-metrics: ${MONITORING_METRICS_ENABLED:true}
+    enable-logging: ${MONITORING_LOGGING_ENABLED:true}
+    log-level: ${MONITORING_LOG_LEVEL:INFO}
+
+# ==============================================================================
+# AUTH-SERVICE SPECIFIC CONFIGURATION
+# ==============================================================================
+auth-service:
+  # Database Schema
+  database:
+    schema: ${AUTH_DB_SCHEMA:auth}
+    table-prefix: ${AUTH_DB_TABLE_PREFIX:tbl_}
+  
+  # Cache Configuration
+  cache:
+    service-prefix: ${AUTH_CACHE_SERVICE_PREFIX:auth-service}
+    reload-on-startup: ${AUTH_CACHE_RELOAD_ON_STARTUP:false}
+    scheduled-reload-enabled: ${AUTH_CACHE_SCHEDULED_RELOAD_ENABLED:true}
+    
+    # Cache Names
+    names:
+      users: ${AUTH_CACHE_NAME_USERS:users}
+      roles: ${AUTH_CACHE_NAME_ROLES:roles}
+      tokens: ${AUTH_CACHE_NAME_TOKENS:tokens}
+      permissions: ${AUTH_CACHE_NAME_PERMISSIONS:permissions}
+    
+    # Cache Key Patterns
+    patterns:
+      blacklisted-token: ${AUTH_CACHE_KEY_BLACKLISTED_TOKEN:blacklisted_token}
+      blacklisted-token-hash: ${AUTH_CACHE_KEY_BLACKLISTED_TOKEN_HASH:blacklisted_token_hash}
+      user-blacklisted: ${AUTH_CACHE_KEY_USER_BLACKLISTED:user_blacklisted}
+      user-active-tokens: ${AUTH_CACHE_KEY_USER_ACTIVE_TOKENS:user_active_tokens}
+    
+    # Cache TTLs
+    user-ttl: ${AUTH_CACHE_USER_TTL:1h}
+    role-ttl: ${AUTH_CACHE_ROLE_TTL:2h}
+    token-ttl: ${AUTH_CACHE_TOKEN_TTL:15m}
+    permission-ttl: ${AUTH_CACHE_PERMISSION_TTL:1h}
+  
+  # Security Configuration
+  security:
+    # Rate Limiting
+    rate-limiting:
+      enabled: ${AUTH_RATE_LIMITING_ENABLED:true}
+      max-requests-per-minute: ${AUTH_RATE_LIMIT_MAX_REQUESTS:60}
+      max-login-attempts-per-minute: ${AUTH_RATE_LIMIT_MAX_LOGIN_ATTEMPTS:5}
+      window-size: ${AUTH_RATE_LIMIT_WINDOW:1m}
+      use-redis: ${AUTH_RATE_LIMIT_USE_REDIS:false}
+      
+      # Endpoint-Specific Rate Limits
+      endpoints:
+        /api/auth/login:
+          max-requests: ${AUTH_RATE_LIMIT_LOGIN_MAX_REQUESTS:5}
+          window: ${AUTH_RATE_LIMIT_LOGIN_WINDOW:1m}
+        /api/auth/register:
+          max-requests: ${AUTH_RATE_LIMIT_REGISTER_MAX_REQUESTS:10}
+          window: ${AUTH_RATE_LIMIT_REGISTER_WINDOW:1m}
+    
+    # Endpoint Configuration
+    endpoints:
+      public-endpoints:
+        - /api/auth/login
+        - /api/auth/register
+        - /api/auth/refresh
+        - /api/auth/forgot-password
+        - /api/auth/reset-password
+        - /actuator/health
+        - /actuator/info
+        - /swagger-ui/**
+        - /v3/api-docs/**
+      admin-endpoints:
+        - /api/auth/admin/**
+        - /api/auth/users/**
+        - /api/auth/roles/**
+        - /api/auth/permissions/**
+      authentication-endpoints:
+        - /api/auth/login
+        - /api/auth/register
+      keycloak-endpoints:
+        - /realms/**
+        - /auth/**
+    
+    # Authentication Configuration
+    authentication:
+      # JWT Configuration
+      jwt:
+        enabled: ${AUTH_JWT_ENABLED:true}
+        issuer: ${AUTH_JWT_ISSUER:auth-service}
+        secret: ${AUTH_JWT_SECRET:your-secret-key-change-in-production}
+        
+        # Access Token
+        access-token:
+          ttl: ${AUTH_JWT_ACCESS_TOKEN_TTL:1h}
+          claim-type-value: ${AUTH_JWT_ACCESS_TOKEN_TYPE:access}
+        
+        # Refresh Token
+        refresh-token:
+          ttl: ${AUTH_JWT_REFRESH_TOKEN_TTL:7d}
+          claim-type-value: ${AUTH_JWT_REFRESH_TOKEN_TYPE:refresh}
+        
+        # Claim Names
+        claim-names:
+          type: ${AUTH_JWT_CLAIM_TYPE:type}
+          roles: ${AUTH_JWT_CLAIM_ROLES:roles}
+          username: ${AUTH_JWT_CLAIM_USERNAME:sub}
+        
+        # Validation
+        validation:
+          allowed-issuers:
+            - ${AUTH_JWT_ISSUER:auth-service}
+          require-exact-match: ${AUTH_JWT_REQUIRE_EXACT_ISSUER_MATCH:true}
+          allow-localhost: ${AUTH_JWT_ALLOW_LOCALHOST_ISSUER:false}
+      
+      # Keycloak Configuration
+      keycloak:
+        enabled: ${AUTH_KEYCLOAK_ENABLED:false}
+        server-url: ${AUTH_KEYCLOAK_SERVER_URL:http://localhost:8180}
+        realm: ${AUTH_KEYCLOAK_REALM:demo-realm}
+        client-id: ${AUTH_KEYCLOAK_CLIENT_ID:auth-service}
+        credentials-secret: ${AUTH_KEYCLOAK_CREDENTIALS_SECRET:}
+        ssl-required: ${AUTH_KEYCLOAK_SSL_REQUIRED:external}
+        use-resource-role-mappings: ${AUTH_KEYCLOAK_USE_RESOURCE_ROLE_MAPPINGS:true}
+        bearer-only: ${AUTH_KEYCLOAK_BEARER_ONLY:true}
+        verify-token-audience: ${AUTH_KEYCLOAK_VERIFY_TOKEN_AUDIENCE:true}
+        connection-pool-size: ${AUTH_KEYCLOAK_CONNECTION_POOL_SIZE:20}
+        
+        # Security: Never enable these in production
+        disable-trust-manager: ${AUTH_KEYCLOAK_DISABLE_TRUST_MANAGER:false}
+        allow-any-hostname: ${AUTH_KEYCLOAK_ALLOW_ANY_HOSTNAME:false}
+
+# ==============================================================================
+# PROFILE-SPECIFIC OVERRIDES
+# ==============================================================================
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+logging:
+  level:
+    root: DEBUG
+    com.pacific: DEBUG
+
+backend-core:
+  security:
+    cors:
+      allowed-origins: "*"
+      allow-credentials: false
+
+auth-service:
+  security:
+    authentication:
+      jwt:
+        validation:
+          allow-localhost: true
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+logging:
+  level:
+    root: WARN
+    com.pacific: INFO
+
+backend-core:
+  security:
+    cors:
+      # Must be explicitly set in production, no wildcard allowed
+      allowed-origins: ${CORS_ALLOWED_ORIGINS}
+      allow-credentials: true
+
+auth-service:
+  security:
+    authentication:
+      jwt:
+        validation:
+          require-exact-match: true
+          allow-localhost: false
+      keycloak:
+        disable-trust-manager: false
+        allow-any-hostname: false
+
+---
+# Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+
+spring:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/auth_db
+  redis:
+    host: redis
+  kafka:
+    bootstrap-servers: kafka:9092
+

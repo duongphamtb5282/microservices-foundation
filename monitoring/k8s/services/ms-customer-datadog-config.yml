@@ -1,0 +1,58 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datadog-jmx-config
+  namespace: datadog
+data:
+  jmx.yaml: |
+    init_config:
+      collect_default_jvm_metrics: true
+
+    instances:
+      - host: "%%host%%"
+        port: 9010  # JMX port configured in deployment
+        name: ms-customer-jmx
+        tags:
+          - service:ms-customer
+          - env:production
+
+    jmx_metrics:
+      - include:
+          domain: java.lang
+          type: Memory
+          name: HeapMemoryUsage
+          attribute:
+            used: gauge
+            committed: gauge
+            max: gauge
+        metric_name: jvm.heap_memory
+
+      - include:
+          domain: java.lang
+          type: GarbageCollector
+          name: CollectionCount
+        metric_name: jvm.gc.count
+
+      - include:
+          domain: java.lang
+          type: GarbageCollector
+          name: CollectionTime
+        metric_name: jvm.gc.time
+
+      - include:
+          domain: java.lang
+          type: Threading
+          attribute:
+            ThreadCount: gauge
+            DaemonThreadCount: gauge
+            PeakThreadCount: gauge
+        metric_name: jvm.threads
+
+      - include:
+          domain: java.lang
+          type: ClassLoading
+          attribute:
+            LoadedClassCount: gauge
+            TotalLoadedClassCount: gauge
+            UnloadedClassCount: gauge
+        metric_name: jvm.classes

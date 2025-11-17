@@ -1,0 +1,180 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-payment-service
+  namespace: ms-payment-service-prod
+  labels:
+    app: ms-payment-service
+    version: "1.0.0"
+    environment: production
+    service: ms-payment-service
+    # EKS specific labels
+    app.kubernetes.io/name: ms-payment-service
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: payment-service
+    app.kubernetes.io/part-of: microservices
+    app.kubernetes.io/managed-by: eks
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: ms-payment-service
+  template:
+    metadata:
+      labels:
+        app: ms-payment-service
+        version: "1.0.0"
+        environment: production
+        service: ms-payment-service
+        # EKS specific labels
+        app.kubernetes.io/name: ms-payment-service
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: payment-service
+        app.kubernetes.io/part-of: microservices
+        app.kubernetes.io/managed-by: eks
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/actuator/prometheus"
+        # EKS specific annotations
+        eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT-ID:role/ms-payment-service-eks-role"
+        # Pod disruption budget annotation
+        cluster-autoscaler.kubernetes.io/safe-to-evict: "true"
+    spec:
+      serviceAccountName: ms-payment-service-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 2000
+        fsGroup: 2000
+      containers:
+      - name: ms-payment-service
+        image: your-registry/ms-payment-service:1.0.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_APPLICATION_NAME
+          value: "ms-payment-service"
+        - name: SERVER_PORT
+          value: "8080"
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-secrets
+              key: db-url
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-secrets
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: payment-db-secrets
+              key: password
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka.microservices-prod.svc.cluster.local:9092"
+        - name: REDIS_HOST
+          value: "redis.microservices-prod.svc.cluster.local"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service-prod.auth-service-prod.svc.cluster.local:8080"
+        - name: PAYMENT_GATEWAY_URL
+          valueFrom:
+            secretKeyRef:
+              name: payment-gateway-secrets
+              key: gateway-url
+        - name: PAYMENT_GATEWAY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: payment-gateway-secrets
+              key: api-key
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-secrets
+              key: encryption-key
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /actuator/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 30
+          timeoutSeconds: 5
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: logs
+          mountPath: /app/logs
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: logs
+        emptyDir: {}
+      # Node affinity for better performance and cost optimization
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: eks.amazonaws.com/capacityType
+                operator: In
+                values:
+                - ON_DEMAND
+      # Pod anti-affinity to spread across nodes
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - ms-payment-service
+            topologyKey: kubernetes.io/hostname

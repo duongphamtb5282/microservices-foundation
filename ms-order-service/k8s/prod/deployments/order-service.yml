@@ -1,0 +1,213 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: microservices-prod
+  labels:
+    app: order-service
+    version: "2.0"
+    environment: production
+    color: blue  # For blue-green deployment
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: order-service
+      color: blue
+  template:
+    metadata:
+      labels:
+        app: order-service
+        color: blue
+        version: "2.0"
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/actuator/prometheus"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: order-service
+        image: ghcr.io/demo/microservices:order-service-2.0
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8081
+          name: http
+          protocol: TCP
+        - containerPort: 8081
+          name: actuator
+          protocol: TCP
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "prod"
+        - name: SPRING_DATASOURCE_URL
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: orders-db-url
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: db-username
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: db-password
+        - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+          value: "kafka.microservices-prod.svc.cluster.local:9092"
+        - name: SPRING_DATA_REDIS_HOST
+          value: "redis.microservices-prod.svc.cluster.local"
+        - name: SPRING_DATA_REDIS_PORT
+          value: "6379"
+        - name: SPRING_ZIPKIN_ENDPOINT
+          value: "http://zipkin.microservices-prod.svc.cluster.local:9411/api/v2/spans"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service.microservices-prod.svc.cluster.local:8082"
+        - name: ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: encryption-secrets
+              key: encryption-key
+        - name: JAVA_OPTS
+          value: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -Djava.security.egd=file:/dev/./urandom"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /actuator/health/liveness
+            port: 8081
+          initialDelaySeconds: 120
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /actuator/health/readiness
+            port: 8081
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        volumeMounts:
+        - name: logs
+          mountPath: /app/logs
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: logs
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
+      # Security: Drop all capabilities
+      securityContext:
+        capabilities:
+          drop:
+          - ALL
+        readOnlyRootFilesystem: true
+        allowPrivilegeEscalation: false
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: microservices-prod
+  labels:
+    app: order-service
+    environment: production
+spec:
+  selector:
+    app: order-service
+    color: blue
+  ports:
+  - name: http
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+  - name: actuator
+    port: 8081
+    targetPort: 8081
+    protocol: TCP
+  type: ClusterIP
+  sessionAffinity: None
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-config
+  namespace: microservices-prod
+  labels:
+    app: order-service
+spec:
+  data:
+    application-prod.yml: |
+      spring:
+        application:
+          name: ms-order-service
+        datasource:
+          url: ${SPRING_DATASOURCE_URL}
+          username: ${SPRING_DATASOURCE_USERNAME}
+          password: ${SPRING_DATASOURCE_PASSWORD}
+          hikari:
+            maximum-pool-size: 10
+            minimum-idle: 5
+            connection-timeout: 30000
+        kafka:
+          bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS}
+          producer:
+            acks: all
+            retries: 3
+        data:
+          redis:
+            host: ${SPRING_DATA_REDIS_HOST}
+            port: ${SPRING_DATA_REDIS_PORT}
+            timeout: 2000ms
+
+      backend-core:
+        messaging:
+          kafka-wrapper:
+            enabled: true
+            cqrs:
+              enabled: true
+            retry:
+              max-attempts: 3
+              initial-backoff: 1s
+              enable-dlq: true
+        security:
+          encryption:
+            enabled: true
+          scanning:
+            enabled: true
+
+      management:
+        endpoints:
+          web:
+            exposure:
+              include: health,info,metrics,prometheus,circuitbreakers,business
+        metrics:
+          export:
+            prometheus:
+              enabled: true
+
+      logging:
+        level:
+          root: WARN
+          com.pacific.order: INFO
+          com.pacific.core: INFO

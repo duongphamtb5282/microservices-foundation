@@ -1,0 +1,49 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datadog-jmx-config-ms-payment
+  namespace: datadog
+data:
+  jmx.yaml: |
+    init_config:
+      collect_default_jvm_metrics: true
+
+    instances:
+      - host: "%%host%%"
+        port: 9012  # JMX port configured in deployment
+        name: ms-payment-jmx
+        tags:
+          - service:ms-payment-service
+          - env:production
+
+    jmx_metrics:
+      - include:
+          domain: java.lang
+          type: Memory
+      - include:
+          domain: java.lang
+          type: Threading
+      - include:
+          domain: java.lang
+          type: OperatingSystem
+      - include:
+          domain: java.lang
+          type: Runtime
+      - include:
+          domain: java.lang
+          type: ClassLoading
+      - include:
+          domain: java.lang
+          type: Compilation
+      - include:
+          domain: java.lang
+          type: MemoryPool
+          name: ".*"
+      - include:
+          domain: java.lang
+          type: MemoryManager
+          name: ".*"
+      - include:
+          domain: java.lang
+          type: GarbageCollector
+          name: ".*"

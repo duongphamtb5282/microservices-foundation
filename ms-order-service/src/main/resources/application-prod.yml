@@ -1,0 +1,12 @@
+spring:
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.pacific.order: INFO
+    com.pacific.core: INFO
+    org.springframework.kafka: WARN
+    org.hibernate: WARN
+

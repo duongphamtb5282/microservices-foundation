@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/payments_db
+    username: postgres
+    password: postgres
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    root: INFO
+    com.pacific.payment: DEBUG
+    com.pacific.core: DEBUG
+    org.springframework.kafka: DEBUG
+    org.hibernate.SQL: DEBUG
+
