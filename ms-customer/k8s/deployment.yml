@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-customer
+  namespace: customer-service
+  labels:
+    app: ms-customer
+    version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ms-customer
+  template:
+    metadata:
+      labels:
+        app: ms-customer
+        version: "1.0.0"
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/actuator/prometheus"
+        # Datadog annotations (if using Datadog)
+        ad.datadoghq.com/ms-customer.check_names: '["jmx"]'
+        ad.datadoghq.com/ms-customer.init_configs: "[{}]"
+        ad.datadoghq.com/ms-customer.instances: '[{"host": "%%host%%", "port": "8084"}]'
+    spec:
+      serviceAccountName: ms-customer-sa
+      containers:
+        - name: ms-customer
+          image: your-registry/ms-customer:1.0.0
+          ports:
+            - containerPort: 8084
+              name: http
+              protocol: TCP
+            - containerPort: 9010
+              name: jmx
+              protocol: TCP
+          env:
+            - name: JAVA_OPTS
+              value: |
+                -XX:+UseG1GC
+                -XX:+UseContainerSupport
+                -XX:MaxRAMPercentage=75.0
+                -Dcom.sun.management.jmxremote
+                -Dcom.sun.management.jmxremote.port=9010
+                -Dcom.sun.management.jmxremote.rmi.port=9010
+                -Dcom.sun.management.jmxremote.local.only=false
+                -Dcom.sun.management.jmxremote.authenticate=false
+                -Dcom.sun.management.jmxremote.ssl=false
+                -Djava.rmi.server.hostname=127.0.0.1
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8084
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8084
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30

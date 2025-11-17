@@ -1,0 +1,67 @@
+[versions]
+mapstructVersion = "1.6.3"
+lombokVersion = "1.18.38"
+liquibaseVersion = "4.32.0"
+assertJVersion = "3.27.3"
+dotEnvVersion = "3.2.0"
+logbackVersion = "1.5.9"
+junitVersion = "5.12.2"
+mockitoVersion = "5.18.0"
+jsonApiVersion = "2.1.3"
+parssonVersion="1.1.7"
+springbootVersion = "3.5.5"
+springDependencyManagementVersion="1.1.7"
+jhisterVersion = "8.11.0"
+shedlockVersion="6.9.0"
+jibVersion="3.4.4"
+caffeineVersion="3.2.1"
+redisHibernateVersion="3.45.0"
+benManesVersionsVersion="0.52.0"
+postgres="42.7.7"
+springdocVersion="2.8.9"
+hypersistenceUtilsVersion="3.10.1"
+springBootTestVersion="3.5.5"
+
+[libraries]
+caffeine = {module="com.github.ben-manes.caffeine:caffeine", version.ref="caffeineVersion"}
+caffeine-jcache = {module="com.github.ben-manes.caffeine:jcache", version.ref="caffeineVersion"}
+redis-hibernate = {module="org.redisson:redisson-hibernate-6", version.ref="redisHibernateVersion"}
+jhipster-framework = { module = "tech.jhipster:jhipster-framework", version.ref = "jhisterVersion" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombokVersion" }
+liquibase = { module = "org.liquibase:liquibase-core", version.ref = "liquibaseVersion" }
+assertJ = { module = "org.assertj:assertj-core", version.ref = "assertJVersion" }
+mapstruct = { module = "org.mapstruct:mapstruct", version.ref = "mapstructVersion" }
+mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "mapstructVersion" }
+dot-env = { module = "io.github.cdimascio:dotenv-java", version.ref = "dotEnvVersion" }
+jib-plugin = { module = "com.google.cloud.tools:jib-gradle-plugin", version.ref = "jibVersion" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackVersion" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junitVersion" }
+json-api = { module = "jakarta.json:jakarta.json-api", version.ref = "jsonApiVersion" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
+mockito = { module = "org.mockito:mockito-core", version.ref = "mockitoVersion" }
+mockito-junit = { module = "org.mockito:mockito-junit-jupiter", version.ref = "mockitoVersion" }
+spring-boot-starter-test= { module = "org.springframework.boot:spring-boot-starter-test", version.ref = "springBootTestVersion" }
+parsson = { module = "org.eclipse.parsson:parsson", version.ref = "parssonVersion" }
+shedlock = {module="net.javacrumbs.shedlock:shedlock-spring", version.ref="shedlockVersion"}
+shedlock-jdbc-provider = {module="net.javacrumbs.shedlock:shedlock-provider-jdbc-template", version.ref="shedlockVersion"}
+splotless-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version = "7.0.3" }
+junit-bom-platform = { module = "org.junit:junit-bom", version.ref = "junitVersion" }
+postgres = { module = "org.postgresql:postgresql", version.ref = "postgres" }
+springdoc-openapi-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdocVersion" }
+springdoc-openapi-security = { module = "org.springdoc:springdoc-openapi-starter-common", version.ref = "springdocVersion" }
+hypersistence = {module = "io.hypersistence:hypersistence-utils-hibernate-63", version.ref="hypersistenceUtilsVersion"}
+
+[plugins]
+spring-boot = { id = "org.springframework.boot", version.ref = "springbootVersion" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref="springDependencyManagementVersion" }
+ben = { id = "com.github.ben-manes.versions", version.ref = "benManesVersionsVersion" }
+
+[bundles]
+logback = ["logback-classic"]
+junit = ["junit-jupiter-api", "junit-jupiter-engine"]
+mockito = ["mockito", "mockito-junit"]
+json = ["json-api", "parsson"]
+shedlock = ["shedlock", "shedlock-jdbc-provider"]
+caffeine-cache = ["caffeine", "caffeine-jcache"]
+springdoc-openapi = ["springdoc-openapi-ui", "springdoc-openapi-security"]

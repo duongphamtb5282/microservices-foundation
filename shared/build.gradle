@@ -1,0 +1,119 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'checkstyle'
+}
+
+group = 'com.pacific'
+version = '1.0.0'
+description = 'Shared libraries and utilities for microservices'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.5"
+    }
+}
+
+dependencies {
+    // Spring Boot Web (for REST controllers)
+    api 'org.springframework.boot:spring-boot-starter-web'
+    
+    // Spring Boot Validation
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // Spring Boot Security
+    api 'org.springframework.boot:spring-boot-starter-security'
+    
+    // Spring Boot Data (for DataIntegrityViolationException)
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    
+    // Spring Cloud Stream Kafka
+    api 'org.springframework.cloud:spring-cloud-starter-stream-kafka:4.1.5'
+    
+    
+    // Jackson for JSON processing
+    api 'com.fasterxml.jackson.core:jackson-databind'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.38'
+    annotationProcessor 'org.projectlombok:lombok:1.18.38'
+    
+    // Test Dependencies (none currently, but keeping for future use)
+    // testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // testImplementation 'org.assertj:assertj-core:3.27.3'
+    // testImplementation 'org.springframework.cloud:spring-cloud-stream-test-binder:4.1.5'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Spotless configuration for code formatting
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/generated/**', '**/target/**'
+        }
+        googleJavaFormat()
+        removeUnusedImports()
+        importOrder('java', 'javax', 'org.springframework', 'com.pacific', 'com')
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration
+checkstyle {
+    toolVersion = '10.12.4'
+    configFile = file('config/checkstyle/checkstyle.xml')
+    showViolations = true
+    maxWarnings = 0
+    maxErrors = 0
+    ignoreFailures = true
+    reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+}
+
+// Code quality tasks
+task codeQuality {
+    group = 'verification'
+    description = 'Runs all code quality checks (formatting, style, tests)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'checkstyleTest', 'test'
+}
+
+// Pre-commit hook task
+task preCommit {
+    group = 'verification'
+    description = 'Runs pre-commit checks (formatting, style, compilation)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'compileJava', 'compileTestJava'
+}
+
+// Publishing configuration for shared library
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}

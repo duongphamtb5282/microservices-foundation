@@ -1,0 +1,207 @@
+plugins {
+    id 'java-library'
+    id 'maven-publish'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '6.25.0'
+    id 'checkstyle'
+}
+
+group = 'com.pacific'
+version = '1.0.0'
+description = 'Backend Core - Shared configuration and utilities library'
+
+// Version configuration for dependencies
+ext {
+    sharedVersion = '1.0.0'
+    useLocalDependencies = true // Set to false for production builds
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    // Add S3 repository for published artifacts if needed
+    // maven {
+    //     url "s3://your-bucket/releases"
+    //     // authentication credentials would be configured separately
+    // }
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.5"
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
+    }
+}
+
+dependencies {
+    // Shared library for common interfaces and DTOs
+    implementation 'com.pacific:shared:1.0.0'
+    
+    // Spring Boot Configuration
+    api 'org.springframework.boot:spring-boot-starter'
+    api 'org.springframework.boot:spring-boot-starter-web'
+    api 'org.springframework.boot:spring-boot-starter-data-jpa'
+    api 'org.springframework.boot:spring-boot-starter-data-redis'
+    api 'org.springframework.boot:spring-boot-starter-cache'
+    api 'org.springframework.boot:spring-boot-starter-security'
+    api 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+    api 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // Kafka Integration
+    api 'org.springframework.kafka:spring-kafka'
+    api 'org.apache.kafka:kafka-clients'
+
+    // Circuit Breaker & Resilience
+    api 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+    api 'io.github.resilience4j:resilience4j-circuitbreaker:2.2.0'
+    api 'io.github.resilience4j:resilience4j-retry:2.2.0'
+    api 'io.github.resilience4j:resilience4j-bulkhead:2.2.0'
+    api 'io.github.resilience4j:resilience4j-ratelimiter:2.2.0'
+
+    // Distributed Tracing (using Micrometer Tracing instead of deprecated Spring Cloud Sleuth)
+    api 'io.micrometer:micrometer-tracing-bridge-brave'
+    api 'io.zipkin.reporter2:zipkin-sender-okhttp3'
+
+    // Security Enhancements
+    api 'org.springframework.security:spring-security-crypto:6.2.0'
+    api 'org.springframework.security:spring-security-oauth2-jose:6.2.0'
+
+    // Configuration Management
+    api 'org.springframework.cloud:spring-cloud-config-client:4.1.0'
+    api 'org.springframework.cloud:spring-cloud-starter-config:4.1.0'
+    
+    // Micrometer for Metrics
+    api 'io.micrometer:micrometer-core'
+    api 'io.micrometer:micrometer-registry-prometheus'
+    
+    // Database
+    api 'org.postgresql:postgresql:42.7.7'
+    api 'org.liquibase:liquibase-core:4.32.0'
+    api 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+    
+    // Caching
+    api 'com.github.ben-manes.caffeine:caffeine:3.2.1'
+    api 'com.github.ben-manes.caffeine:jcache:3.2.1'
+    api 'org.apache.commons:commons-pool2'
+    
+    // JWT
+    api 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
+    
+    // Jackson
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+    api 'com.fasterxml.jackson.datatype:jackson-datatype-hibernate6'
+
+    // OpenAPI/Swagger
+    api 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.2.0'
+    
+    // Lombok
+    compileOnly 'org.projectlombok:lombok:1.18.34'
+    annotationProcessor 'org.projectlombok:lombok:1.18.34'
+    
+    // Test Dependencies
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.assertj:assertj-core:3.27.3'
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}
+
+// Annotation processing is handled automatically by Gradle
+
+// Spotless configuration for code formatting
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/generated/**', '**/target/**'
+        }
+        googleJavaFormat()
+        importOrder('java', 'javax', '', 'com.pacific')
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    sql {
+        target fileTree('.') {
+            include '**/*.sql'
+            exclude '**/build/**'
+        }
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    yaml {
+        target fileTree('.') {
+            include '**/*.yml', '**/*.yaml'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    json {
+        target fileTree('.') {
+            include '**/*.json'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    format 'misc', {
+        target '*.md', '*.txt'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration
+checkstyle {
+    configFile = file('config/checkstyle/checkstyle.xml')
+    showViolations = true
+    maxWarnings = 0
+    maxErrors = 0
+    ignoreFailures = true
+    reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+}
+
+// Code quality tasks
+task codeQuality {
+    group = 'verification'
+    description = 'Runs all code quality checks (formatting, style, tests)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'checkstyleTest', 'test'
+}
+
+// Pre-commit hook task
+task preCommit {
+    group = 'verification'
+    description = 'Runs pre-commit checks (formatting, style, compilation)'
+
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'compileJava', 'compileTestJava'
+}
+
+// Publishing configuration for shared library
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}

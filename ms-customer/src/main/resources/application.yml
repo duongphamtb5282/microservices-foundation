@@ -1,0 +1,130 @@
+# Main application configuration
+# Profile-specific configurations are loaded from application-{profile}.yml
+# Common configuration is loaded from application-common.yml
+
+spring:
+  application:
+    name: ms-customer
+  profiles:
+    active: dev
+    include: common
+
+  # Kafka Configuration for Customer Service
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      properties:
+        enable.idempotence: true
+        acks: all
+        retries: 3
+        max.in.flight.requests.per.connection: 1
+        batch.size: 16384
+        linger.ms: 5
+        buffer.memory: 33554432
+        compression.type: snappy
+    consumer:
+      group-id: customer-service-group
+      auto-offset-reset: earliest # For event sourcing, start from beginning
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        enable.auto.commit: false
+        session.timeout.ms: 30000
+        heartbeat.interval.ms: 10000
+        max.poll.records: 50 # Smaller batch for customer events
+        fetch.min.bytes: 1
+        fetch.max.wait.ms: 500
+        spring.json.trusted.packages: "com.pacific.shared.events"
+        spring.json.value.default.type: "com.pacific.shared.events.UserCreatedEvent"
+    listener:
+      ack-mode: manual_immediate
+      concurrency: 2 # Moderate concurrency for customer service
+      ack-count: 1
+
+# Topics configuration (optional - for reference)
+app:
+  kafka:
+    topics:
+      customer-events: customer-events
+      customer-commands: customer-commands
+      customer-dlq: customer-events.dlq
+      user-events: user-events
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    prometheus:
+      enabled: true
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+  # HTTP Server Metrics with Correlation ID
+  metrics:
+    web:
+      server:
+        request:
+          attributes:
+            correlationId:
+              enabled: true
+          auto-time-requests: true
+        server:
+          request:
+            exceptions: true
+      client:
+        request:
+          attributes:
+            correlationId:
+              enabled: true
+          auto-time-requests: true
+        client:
+          tags:
+            service: ${spring.application.name}
+
+    tags:
+      application: ${spring.application.name}
+      environment: ${spring.profiles.active:local}
+
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        http.client.requests: true
+      sla:
+        http.server.requests:
+          - 100
+          - 250
+          - 500
+          - 1000
+
+# Enhanced Kafka metrics for customer service
+metrics:
+  distribution:
+    percentiles-histogram:
+      kafka.producer.messages.sent: true
+      kafka.consumer.messages.received: true
+      customer.event.processing: true
+    sla:
+      customer.event.processing:
+        - 50
+        - 200
+        - 500
+        - 2000 # Customer event processing SLAs
+
+# Logging with correlation ID
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{correlationId:-}] %-5level %logger{36} - %msg%n"
+  level:
+    com.pacific.customer: INFO
+    org.springframework.web: INFO
+    io.micrometer: INFO
+    org.apache.kafka: INFO
+    org.springframework.kafka: DEBUG
+    com.pacific.shared.event: DEBUG # Event serialization logging

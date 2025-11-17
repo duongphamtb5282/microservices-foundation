@@ -1,0 +1,42 @@
+
+configurations {
+  all {
+    resolutionStrategy {
+    }
+  }
+}
+
+dependencies {
+    developmentOnly "org.springframework.boot:spring-boot-devtools"
+}
+
+ext {
+    springProfiles = "dev" + springProfiles
+}
+
+springBoot {
+    buildInfo {
+        excludes = ['time']
+    }
+}
+
+bootRun {
+    args = ["--spring.profiles.active=${springProfiles}"]
+}
+
+processResources {
+    inputs.property('version', version)
+    inputs.property('springProfiles', springProfiles)
+    filesMatching("**/application.yml") {
+        filter {
+            it.replace("@project.version@", version)
+        }
+        filter {
+            it.replace("@spring.profiles.active@", springProfiles)
+        }
+    }
+}
+
+
+
+bootJar.dependsOn processResources

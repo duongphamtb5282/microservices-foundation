@@ -1,0 +1,104 @@
+# ==============================================================================
+# KAFKA INTEGRATION GUIDE
+# ==============================================================================
+# This file shows how to configure Kafka messaging in consumer services.
+# Copy relevant sections to your service's application.yml
+# Since backend-core moved configuration to consumer services, use direct property names.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# KAFKA WRAPPER CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure Kafka features in your consumer service (always enabled)
+kafka:
+  # CQRS Configuration
+    cqrs:
+      enabled: true
+      command-topic: commands
+      event-topic: events
+      query-topic: queries
+      event-store-enabled: true
+
+    # Retry Configuration
+    retry:
+      max-attempts: 3                    # Maximum retry attempts
+      initial-backoff: 1s               # Initial backoff duration
+      max-backoff: 5m                   # Maximum backoff duration
+      backoff-multiplier: 2.0           # Exponential backoff multiplier
+      jitter-factor: 0.1                # Randomization factor (0.0-1.0)
+      enable-dlq: true                  # Enable Dead Letter Queue
+      dlq-topic-suffix: .dlq            # DLQ topic suffix
+
+      # Exception handling - customize for your use case
+      retryable-exceptions:
+        - "java.sql.SQLException"
+        - "org.apache.kafka.common.errors.TimeoutException"
+        - "org.apache.kafka.common.errors.NetworkException"
+        - "java.net.SocketTimeoutException"
+        - "java.net.ConnectException"
+
+      non-retryable-exceptions:
+        - "java.lang.IllegalArgumentException"
+        - "java.lang.NullPointerException"
+        - "org.springframework.kafka.support.serializer.DeserializationException"
+        - "java.lang.IllegalStateException"
+
+    # Monitoring Configuration
+    monitoring:
+      enabled: true
+      tracing-enabled: true
+      metrics-prefix: kafka.wrapper
+
+# -----------------------------------------------------------------------------
+# SPRING KAFKA BASE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure your Kafka connection in your consumer service
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092  # Change for your environment
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 0  # Retries handled by backend-core wrapper
+      compression-type: snappy
+      properties:
+        enable.idempotence: true
+
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      enable-auto-commit: false  # Manual commit for reliability
+      auto-offset-reset: latest
+      properties:
+        spring.json.trusted.packages: "*"
+
+    admin:
+      properties:
+        bootstrap.servers: localhost:9092
+
+# -----------------------------------------------------------------------------
+# MONITORING & LOGGING
+# -----------------------------------------------------------------------------
+# Configure monitoring in your consumer service
+monitoring:
+  enabled: true
+  enable-metrics: true
+  enable-health-checks: true
+
+# Configure logging levels
+logging:
+  level:
+    com.pacific.core.messaging: INFO
+    org.apache.kafka: WARN
+    org.springframework.kafka: INFO
+
+# -----------------------------------------------------------------------------
+# PRODUCTION CONFIGURATION EXAMPLE
+# -----------------------------------------------------------------------------
+# For production, use environment variables:
+# spring.kafka.bootstrap-servers=${KAFKA_BOOTSTRAP_SERVERS}
+# spring.kafka.properties.sasl.mechanism=PLAIN
+# spring.kafka.properties.sasl.jaas.config=...
+# spring.kafka.properties.security.protocol=SASL_SSL

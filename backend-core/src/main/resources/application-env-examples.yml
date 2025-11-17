@@ -1,0 +1,208 @@
+# ==============================================================================
+# BACKEND-CORE INTEGRATION EXAMPLES
+# ==============================================================================
+# These examples show how consumer services should configure backend-core features.
+# Copy relevant sections to your service's application.yml files.
+# Since backend-core configuration moved to consumer services, use direct property names.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# KAFKA MESSAGING CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure Kafka messaging in your consumer service
+kafka:
+  enabled: true  # Set to false to disable Kafka entirely
+  retry:
+    maxAttempts: 3
+    initial-backoff: 1s
+    max-backoff: 5m
+  cqrs:
+    enabled: true
+    command-topic: commands
+    event-topic: events
+
+# Kafka type mappings (configure your specific event/command classes)
+spring:
+  kafka:
+    consumer:
+      type-mappings: |
+        event:com.yourcompany.events.UserCreatedEvent,
+        command:com.yourcompany.commands.CreateUserCommand
+    producer:
+      type-mappings: |
+        event:com.yourcompany.events.UserCreatedEvent,
+        command:com.yourcompany.commands.CreateUserCommand
+
+# -----------------------------------------------------------------------------
+# DATABASE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure database features in your consumer service
+database:
+  enabled: true  # Enable database functionality
+  default-pool-type: hikari
+  default-max-pool-size: 20
+  default-connection-timeout: 20s
+
+# Your service's specific database configuration
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/yourdb
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+# -----------------------------------------------------------------------------
+# CACHE CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure caching in your consumer service
+cache:
+  enabled: true  # Set to false to disable caching infrastructure entirely
+
+# -----------------------------------------------------------------------------
+# MONITORING CONFIGURATION
+# -----------------------------------------------------------------------------
+# Configure monitoring features in your consumer service
+monitoring:
+  enabled: true  # Enable monitoring functionality
+  enable-health-checks: true
+  enable-metrics: true
+  log-level: INFO
+
+# -----------------------------------------------------------------------------
+# DEVELOPMENT ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-dev.yml for development
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ${spring.application.name}-dev
+    producer:
+      acks: 1
+
+database:
+  default-max-pool-size: 5  # Smaller pool for development
+
+# -----------------------------------------------------------------------------
+# PRODUCTION ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-prod.yml for production
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
+    security:
+      protocol: SASL_SSL
+    properties:
+      sasl.mechanism: PLAIN
+      sasl.jaas.config: |
+        org.apache.kafka.common.security.plain.PlainLoginModule required
+        username="${KAFKA_USERNAME}"
+        password="${KAFKA_PASSWORD}";
+
+database:
+  default-max-pool-size: 50  # Larger pool for production
+
+# -----------------------------------------------------------------------------
+# TESTING ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-test.yml for testing
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092,localhost:9093,localhost:9094
+    consumer:
+      group-id: ${spring.application.name}-test
+      auto-offset-reset: earliest
+    producer:
+      acks: 1
+
+# Disable features for faster test startup
+kafka:
+  enabled: false  # Disable Kafka for tests
+
+cache:
+  enabled: false  # Disable caching for tests
+
+database:
+  enabled: true
+  default-max-pool-size: 3  # Small pool for testing
+
+monitoring:
+  enabled: false  # Disable monitoring for tests
+
+# -----------------------------------------------------------------------------
+# CI/CD ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-ci.yml for CI/CD pipelines
+spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+
+# Disable heavy infrastructure for fast CI builds
+kafka:
+  enabled: false  # Disable Kafka for CI
+
+cache:
+  enabled: false  # Disable caching for CI
+
+database:
+  enabled: false  # Use H2 or mock database in CI
+
+monitoring:
+  enabled: false  # Disable monitoring for CI
+
+# -----------------------------------------------------------------------------
+# DOCKER ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-docker.yml for Docker development
+spring:
+  kafka:
+    bootstrap-servers: kafka:9092
+  datasource:
+    url: jdbc:postgresql://postgres:5432/yourdb
+
+# -----------------------------------------------------------------------------
+# KUBERNETES ENVIRONMENT EXAMPLE
+# -----------------------------------------------------------------------------
+# Use this in application-k8s.yml for Kubernetes deployment
+spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_SERVICE}:9092
+  datasource:
+    url: jdbc:postgresql://${DB_SERVICE}:5432/${DB_NAME}
+
+database:
+  default-max-pool-size: 20
+
+monitoring:
+  enabled: true
+  enable-metrics: true
+  enable-health-checks: true
+
+# -----------------------------------------------------------------------------
+# ENVIRONMENT VARIABLE REFERENCE
+# -----------------------------------------------------------------------------
+# Copy these to your .env files or CI/CD variables:
+
+# Development:
+# KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+# DB_USERNAME=postgres
+# DB_PASSWORD=password
+# REDIS_HOST=localhost
+
+# Production:
+# KAFKA_BOOTSTRAP_SERVERS=kafka-cluster.company.com:9092
+# KAFKA_SECURITY_PROTOCOL=SASL_SSL
+# KAFKA_SASL_MECHANISM=PLAIN
+# DB_URL=jdbc:postgresql://db-cluster.company.com:5432/myapp
+# REDIS_HOST=redis-cluster.company.com
+
+# Testing:
+# KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+# DB_URL=jdbc:h2:mem:testdb
+
+# CI/CD:
+# KAFKA_BOOTSTRAP_SERVERS=localhost:9092
+# DB_ENABLED=false
+# MONITORING_ENABLED=false

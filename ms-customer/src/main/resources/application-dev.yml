@@ -1,0 +1,82 @@
+# Development Profile Configuration
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # MongoDB Migration Configuration
+  mongodb:
+    migration:
+      enabled: ${MONGODB_MIGRATION_ENABLED:true}
+
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: ${REDIS_TIMEOUT:2000}ms
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+mongo:
+  host: ${MONGODB_HOST:localhost}
+  port: ${MONGODB_PORT:27017}
+  database: ${MONGODB_DATABASE:customerdb}
+  username: ${MONGODB_USERNAME:admin}
+  password: ${MONGODB_PASSWORD:password123}
+  authenticationDatabase: ${MONGODB_AUTH_DATABASE:admin}
+  pool:
+    maxSize: ${MONGODB_CONNECTION_POOL_SIZE:5}
+    maxWaitTime: ${MONGODB_MAX_WAIT_TIME:PT120S}
+    maxConnectionIdleTime: ${MONGODB_MAX_CONNECTION_IDLE_TIME:PT30S}
+
+customer:
+  websocket:
+    max-connections: ${WEBSOCKET_MAX_CONNECTIONS:500}
+    heartbeat-interval: ${WEBSOCKET_HEARTBEAT_INTERVAL:30s}
+    max-message-size: ${WEBSOCKET_MAX_MESSAGE_SIZE:64KB}
+
+  mongodb:
+    connection-pool-size: ${MONGODB_CONNECTION_POOL_SIZE:5}
+    max-wait-time: ${MONGODB_MAX_WAIT_TIME:120000}
+    max-connection-idle-time: ${MONGODB_MAX_CONNECTION_IDLE_TIME:30000}
+
+  cache:
+    ttl: ${CACHE_TTL:300}
+    size: ${CACHE_SIZE:5000}
+    caffeine:
+      spec: ${CACHE_SPEC:maximumSize=5000,expireAfterWrite=5m}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          enabled: true
+          issuer-uri: http://localhost:8080/realms/auth-service
+    encryption:
+      enabled: ${CUSTOMER_ENCRYPTION_ENABLED:false}
+
+logging:
+  level:
+    com.pacific.customer: ${LOGGING_LEVEL_COM_DEMO_CUSTOMER:DEBUG}
+    org.springframework.security: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY:DEBUG}
+    org.springframework.data.mongodb: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_MONGODB:DEBUG}
+    org.springframework.web.reactive: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB_REACTIVE:DEBUG}
+    reactor.netty: ${LOGGING_LEVEL_REACTOR_NETTY:DEBUG}
+  file:
+    name: ${LOGGING_FILE_NAME:logs/ms-customer-dev.log}
+    max-size: ${LOGGING_FILE_MAX_SIZE:50MB}
+    max-history: ${LOGGING_FILE_MAX_HISTORY:7}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"
+
+management:
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:always}
+  metrics:
+    tags:
+      environment: development
+
+# Development-specific settings
+debug: ${DEBUG:true}

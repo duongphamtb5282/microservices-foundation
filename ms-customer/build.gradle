@@ -1,0 +1,203 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.2.0'
+    id 'io.spring.dependency-management' version '1.1.4'
+    id 'com.diffplug.spotless' version '6.25.0'
+    // id 'checkstyle' // Temporarily disabled for independent build setup
+}
+
+group = 'com.pacific'
+version = '1.0.0'
+sourceCompatibility = '21'
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java', 'stubs']
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+        resources {
+            srcDirs = ['src/test/resources']
+        }
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    springCloudVersion = '2023.0.0'
+    backendCoreVersion = '1.0.0'
+    sharedVersion = '1.0.0'
+    useLocalDependencies = true
+}
+
+dependencies {
+    // Backend-core and shared modules (local jars for dev, Maven for prod/CI)
+    if (project.file('../backend-core').isDirectory() && useLocalDependencies) {
+        implementation fileTree(dir: '../backend-core/build/libs', include: '*.jar')
+    } else {
+        implementation "com.pacific:backend-core:${backendCoreVersion}"
+    }
+
+    if (project.file('../shared').isDirectory() && useLocalDependencies) {
+        implementation fileTree(dir: '../shared/build/libs', include: '*.jar')
+    } else {
+        implementation "com.pacific:shared:${sharedVersion}"
+    }
+
+    // Spring WebFlux (reactive web)
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // Reactive MongoDB
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+
+    // Reactive Security
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.security:spring-security-oauth2-resource-server'
+    implementation 'org.springframework.security:spring-security-oauth2-jose'
+
+    // Reactive Validation
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Reactive Circuit Breaker & Resilience
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3'
+    implementation 'io.github.resilience4j:resilience4j-reactor'
+
+    // WebSocket Support
+    implementation 'org.springframework:spring-websocket'
+
+    // Reactive Streams
+    implementation 'io.projectreactor:reactor-core'
+    implementation 'io.projectreactor:reactor-test'
+
+    // MongoDB Reactive Streams Driver
+    implementation 'org.mongodb:mongodb-driver-reactivestreams'
+
+    // Custom MongoDB migrations using Spring Boot
+
+    // Reactive Redis (for caching)
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+
+    // Reactive Kafka
+    implementation 'org.springframework.kafka:spring-kafka'
+
+    // JSON Schema Validation
+    implementation 'com.networknt:json-schema-validator:1.0.72'
+
+    // Metrics & Monitoring (reactive)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Configuration Properties Support
+    implementation 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // OpenAPI/Swagger (reactive compatible)
+    implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.2.0'
+
+    // Lombok (only for entities that need mutability)
+    compileOnly 'org.projectlombok:lombok'
+    annotationProcessor 'org.projectlombok:lombok'
+
+    // Testing
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation 'org.testcontainers:mongodb'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'de.flapdoodle.embed:de.flapdoodle.embed.mongo:4.11.0'
+    testImplementation 'org.testcontainers:testcontainers:1.19.3'
+}
+
+// Dependency management
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.5"
+    }
+}
+
+// Code quality configurations (same as other services)
+spotless {
+    java {
+        target fileTree('.') {
+            include '**/*.java'
+            exclude '**/build/**', '**/generated/**', '**/target/**'
+        }
+        googleJavaFormat()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    sql {
+        target fileTree('.') {
+            include '**/*.sql'
+            exclude '**/build/**'
+        }
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+
+    yaml {
+        target fileTree('.') {
+            include '**/*.yml', '**/*.yaml'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    json {
+        target fileTree('.') {
+            include '**/*.json'
+            exclude '**/build/**', '**/target/**'
+        }
+        prettier()
+    }
+
+    format 'misc', {
+        target '*.md', '*.txt'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+
+// Checkstyle configuration - temporarily disabled for independent build setup
+// checkstyle {
+//     configFile = file('config/checkstyle/checkstyle.xml')
+//     ignoreFailures = true
+//     reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+// }
+
+// Code quality tasks
+task codeQuality {
+    group = 'verification'
+    description = 'Runs all code quality checks (formatting, tests)'
+
+    dependsOn 'spotlessCheck', 'test' // checkstyle temporarily disabled
+}
+
+// Pre-commit hook task
+task preCommit {
+    group = 'verification'
+    description = 'Runs pre-commit checks (formatting, compilation)'
+
+    dependsOn 'spotlessCheck', 'compileJava', 'compileTestJava' // checkstyle temporarily disabled
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

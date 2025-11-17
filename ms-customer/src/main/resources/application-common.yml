@@ -1,0 +1,134 @@
+# Common Configuration (shared across all profiles)
+mongo:
+  enabled: true
+  uri: ${MONGODB_URI:mongodb://localhost:27017/customerdb}
+  host: ${MONGODB_HOST:localhost}
+  port: ${MONGODB_PORT:27017}
+  database: ${MONGODB_DATABASE:customerdb}
+  username: ${MONGODB_USERNAME:}
+  password: ${MONGODB_PASSWORD:}
+  authenticationDatabase: ${MONGODB_AUTH_DATABASE:admin}
+  tlsEnabled: ${MONGODB_TLS_ENABLED:false}
+  retryReads: ${MONGODB_RETRY_READS:true}
+  retryWrites: ${MONGODB_RETRY_WRITES:true}
+  readPreference: ${MONGODB_READ_PREFERENCE:primary}
+  writeConcern: ${MONGODB_WRITE_CONCERN:MAJORITY}
+  connectionTimeout: ${MONGODB_CONNECTION_TIMEOUT:PT10S}
+  socketTimeout: ${MONGODB_SOCKET_TIMEOUT:PT30S}
+  serverSelectionTimeout: ${MONGODB_SERVER_SELECTION_TIMEOUT:PT30S}
+  pool:
+    minSize: ${MONGODB_POOL_MIN_SIZE:0}
+    maxSize: ${MONGODB_POOL_MAX_SIZE:20}
+    maxWaitTime: ${MONGODB_MAX_WAIT_TIME:PT2S}
+    maxConnectionLifeTime: ${MONGODB_MAX_CONNECTION_LIFE_TIME:PT0S}
+    maxConnectionIdleTime: ${MONGODB_MAX_CONNECTION_IDLE_TIME:PT1M}
+
+spring:
+  application:
+    name: ms-customer
+
+  data:
+    mongodb:
+      # Use mongo.uri if provided, otherwise construct from individual properties
+      uri: ${mongo.uri:mongodb://${mongo.host}:${mongo.port}/${mongo.database}}
+      host: ${mongo.host}
+      port: ${mongo.port}
+      database: ${mongo.database}
+      username: ${mongo.username:}
+      password: ${mongo.password:}
+      authentication-database: ${mongo.authenticationDatabase:admin}
+
+  kafka:
+    consumer:
+      group-id: customer-service
+      auto-offset-reset: earliest
+
+  # JWT configuration moved to profile-specific files (dev, stg, prod)
+
+server:
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info,metrics
+
+  endpoint:
+    health:
+      show-details: when_authorized
+
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: 10s
+
+    # JVM Metrics Configuration (Essential for production monitoring)
+    jvm:
+      gc:
+        enabled: true # Garbage collection metrics
+      memory:
+        enabled: true # Heap/non-heap memory metrics
+      thread:
+        enabled: true # Thread count and state metrics
+      classloader:
+        enabled: true # Class loading metrics
+
+    # HTTP Metrics Configuration (For error rate monitoring)
+    web:
+      server:
+        request:
+          autotime:
+            enabled: true
+            percentiles: 0.5,0.9,0.95,0.99
+            percentiles-histogram: true
+
+    # MongoDB Metrics Configuration (Database monitoring)
+    mongodb:
+      driver:
+        pool:
+          enabled: true # Connection pool metrics
+      connectionpool:
+        enabled: true # Connection pool size and usage
+      commands:
+        enabled: true # MongoDB command metrics
+
+    # Custom Tags for all metrics
+    tags:
+      service: ${spring.application.name:ms-customer}
+      environment: ${spring.profiles.active:default}
+      version: "@project.version@"
+
+customer:
+  websocket:
+    enabled: true
+
+  events:
+    customer-created:
+      topic: customer.events
+    customer-updated:
+      topic: customer.events
+    customer-status-changed:
+      topic: customer.events
+
+  api:
+    max-page-size: 100
+    default-page-size: 20
+
+logging:
+  level:
+    com.pacific.customer: INFO
+    reactor.netty: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+
+info:
+  app:
+    name: "@project.name@"
+    description: "Customer Service - Reactive Microservice with WebSocket"
+    version: "@project.version@"
+    java:
+      version: "@java.version@"
+    spring:
+      boot: "@spring-boot.version@"

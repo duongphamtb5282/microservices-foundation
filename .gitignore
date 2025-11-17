@@ -1,0 +1,66 @@
+# Ignore all Markdown files except README.md
+*.md
+!README.md
+!**/README.md
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+out/
+
+# Eclipse
+.classpath
+.project
+.settings/
+bin/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Logs
+logs/
+*.log
+*.gz
+
+# Security - Never commit private keys or secrets
+*.key
+!*.pub
+*-secret.txt
+secrets/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+*~
+
+# Test coverage
+coverage/
+*.coverage
+
+# Node modules (if any frontend)
+node_modules/
+
+# Database
+*.db
+*.sqlite
+
+# PID files
+*.pid
+

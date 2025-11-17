@@ -1,0 +1,139 @@
+# Production Profile Configuration
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  redis:
+    host: ${REDIS_HOST:redis-cluster.customer-service.svc.cluster.local}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    timeout: ${REDIS_TIMEOUT:2000}ms
+    cluster:
+      nodes: ${REDIS_CLUSTER_NODES:redis-cluster-0.customer-service.svc.cluster.local:6379,redis-cluster-1.customer-service.svc.cluster.local:6379,redis-cluster-2.customer-service.svc.cluster.local:6379}
+    lettuce:
+      pool:
+        max-active: ${REDIS_POOL_MAX_ACTIVE:16}
+        max-idle: ${REDIS_POOL_MAX_IDLE:16}
+        min-idle: ${REDIS_POOL_MIN_IDLE:4}
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka.customer-service.svc.cluster.local:9092}
+    security:
+      protocol: ${KAFKA_SECURITY_PROTOCOL:SASL_SSL}
+    sasl:
+      mechanism: ${KAFKA_SASL_MECHANISM:SCRAM-SHA-256}
+      jaas:
+        config: org.apache.kafka.common.security.scram.ScramLoginModule required username="${KAFKA_USERNAME}" password="${KAFKA_PASSWORD}";
+    ssl:
+      truststore:
+        location: ${KAFKA_SSL_TRUSTSTORE_LOCATION:/etc/ssl/certs/ca-certificates.crt}
+        password: ${KAFKA_TRUSTSTORE_PASSWORD:}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:https://auth-service.customer-service.svc.cluster.local}
+          jwk-set-uri: ${JWT_JWK_SET_URI:https://auth-service.customer-service.svc.cluster.local/.well-known/jwks.json}
+
+customer:
+  websocket:
+    max-connections: ${WEBSOCKET_MAX_CONNECTIONS:5000}
+    heartbeat-interval: ${WEBSOCKET_HEARTBEAT_INTERVAL:60s}
+    max-message-size: ${WEBSOCKET_MAX_MESSAGE_SIZE:256KB}
+
+  cache:
+    ttl: ${CACHE_TTL:3600}
+    size: ${CACHE_SIZE:50000}
+    caffeine:
+      spec: ${CACHE_SPEC:maximumSize=50000,expireAfterWrite=1h,recordStats}
+
+  security:
+    encryption:
+      enabled: ${CUSTOMER_ENCRYPTION_ENABLED:true}
+      algorithm: ${CUSTOMER_ENCRYPTION_ALGORITHM:AES}
+      key-size: ${CUSTOMER_ENCRYPTION_KEY_SIZE:256}
+      key-store:
+        location: ${CUSTOMER_KEYSTORE_LOCATION:classpath:keystore.jks}
+        password: ${KEYSTORE_PASSWORD:}
+        alias: ${CUSTOMER_KEYSTORE_ALIAS:customer-key}
+
+logging:
+  level:
+    com.pacific.customer: ${LOGGING_LEVEL_COM_DEMO_CUSTOMER:INFO}
+    org.springframework.security: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY:WARN}
+    org.springframework.data.mongodb: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_DATA_MONGODB:WARN}
+    reactor.netty: ${LOGGING_LEVEL_REACTOR_NETTY:WARN}
+    org.springframework.web: ${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:WARN}
+  file:
+    name: ${LOGGING_FILE_NAME:/var/log/ms-customer/ms-customer.log}
+    max-size: ${LOGGING_FILE_MAX_SIZE:200MB}
+    max-history: ${LOGGING_FILE_MAX_HISTORY:30}
+    total-size-cap: ${LOGGING_FILE_TOTAL_SIZE_CAP:2GB}
+
+management:
+  endpoint:
+    health:
+      show-details: ${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:when_authorized}
+      probes:
+        enabled: ${MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED:true}
+  metrics:
+    tags:
+      environment: production
+    export:
+      prometheus:
+        enabled: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_ENABLED:true}
+        descriptions: ${MANAGEMENT_METRICS_EXPORT_PROMETHEUS_DESCRIPTIONS:false}
+
+  lifecycle:
+    timeout-per-shutdown-phase: 60s
+
+# Production-specific settings
+server:
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json,application/xml,text/x-component
+    min-response-size: 1024
+  shutdown: graceful
+
+# JVM production optimizations
+java:
+  opts: |
+    -XX:+UseG1GC
+    -XX:+UseContainerSupport
+    -XX:MaxRAMPercentage=75.0
+    -XX:+HeapDumpOnOutOfMemoryError
+    -XX:HeapDumpPath=/var/log/ms-customer/
+    -XX:+PrintGCDetails
+    -XX:+PrintGCTimeStamps
+    -Xloggc:/var/log/ms-customer/gc.log
+    -XX:+UseGCLogFileRotation
+    -XX:GCLogFileSize=10M
+    -XX:NumberOfGCLogFiles=5
+    -Dcom.sun.management.jmxremote
+    -Dcom.sun.management.jmxremote.port=9010
+    -Dcom.sun.management.jmxremote.rmi.port=9010
+    -Dcom.sun.management.jmxremote.local.only=false
+    -Dcom.sun.management.jmxremote.authenticate=true
+    -Dcom.sun.management.jmxremote.password.file=/etc/jmx/jmxremote.password
+    -Dcom.sun.management.jmxremote.access.file=/etc/jmx/jmxremote.access
+    -Dcom.sun.management.jmxremote.ssl=true
+    -Dcom.sun.management.jmxremote.ssl.need.client.auth=true
+    -Dcom.sun.management.jmxremote.registry.ssl=true
+    -Djavax.net.ssl.keyStore=/etc/ssl/keystore.jks
+    -Djavax.net.ssl.keyStorePassword=${KEYSTORE_PASSWORD}
+    -Djavax.net.ssl.trustStore=/etc/ssl/truststore.jks
+    -Djavax.net.ssl.trustStorePassword=${TRUSTSTORE_PASSWORD}
+    -Djava.rmi.server.hostname=127.0.0.1
+
+mongo:
+  uri: ${MONGODB_URI:mongodb://admin:password@mongodb.customer-service.svc.cluster.local:27017/customerdb?ssl=true&replicaSet=rs0&readPreference=secondaryPreferred&maxPoolSize=20&minPoolSize=5}
+  username: ${MONGODB_USERNAME:admin}
+  password: ${MONGODB_PASSWORD:password}
+  authenticationDatabase: ${MONGODB_AUTH_DATABASE:admin}
+  tlsEnabled: ${MONGODB_SSL:true}
+  pool:
+    maxSize: ${MONGODB_CONNECTION_POOL_SIZE:20}
+    maxWaitTime: ${MONGODB_MAX_WAIT_TIME:PT30S}
+    maxConnectionIdleTime: ${MONGODB_MAX_CONNECTION_IDLE_TIME:PT60S}

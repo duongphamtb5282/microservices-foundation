@@ -1,0 +1,137 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ms-customer
+  namespace: customer-service-prod
+  labels:
+    app: ms-customer
+    environment: prod
+    version: "1.0.0"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ms-customer
+      environment: prod
+  template:
+    metadata:
+      labels:
+        app: ms-customer
+        environment: prod
+        version: "1.0.0"
+      annotations:
+        # Prometheus scraping annotations
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8084"
+        prometheus.io/path: "/actuator/prometheus"
+        # Datadog annotations
+        ad.datadoghq.com/ms-customer.check_names: '["jmx"]'
+        ad.datadoghq.com/ms-customer.init_configs: "[{}]"
+        ad.datadoghq.com/ms-customer.instances: '[{"host": "%%host%%", "port": "8084"}]'
+    spec:
+      serviceAccountName: ms-customer-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: ms-customer
+          image: your-registry/ms-customer:prod-latest
+          ports:
+            - containerPort: 8084
+              name: http
+              protocol: TCP
+            - containerPort: 9010
+              name: jmx
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod,common"
+            - name: MONGODB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: password
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+            - name: KAFKA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: username
+            - name: KAFKA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: password
+            - name: KAFKA_TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kafka-secret
+                  key: truststore-password
+            - name: KEYSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: keystore-secret
+                  key: password
+            - name: TRUSTSTORE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: truststore-secret
+                  key: password
+          volumeMounts:
+            - name: keystore
+              mountPath: /etc/ssl/keystore.jks
+              subPath: keystore.jks
+            - name: truststore
+              mountPath: /etc/ssl/truststore.jks
+              subPath: truststore.jks
+            - name: logs
+              mountPath: /var/log/ms-customer
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8084
+              scheme: HTTPS
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8084
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          startupProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8084
+              scheme: HTTPS
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+      volumes:
+        - name: keystore
+          secret:
+            secretName: keystore-secret
+        - name: truststore
+          secret:
+            secretName: truststore-secret
+        - name: logs
+          persistentVolumeClaim:
+            claimName: ms-customer-logs-pvc
