@@ -4,6 +4,17 @@
 !README.md
 !**/README.md
 
+# Docs folders at any level (module-local docs, design docs, etc.)
+**/docs/
+
+# Scripts (local dev/test helpers)
+scripts/
+
+# Claude Code artifacts (any level)
+**/.claude/
+**/.claude-flow/
+**/CLAUDE.md
+
 # Gradle
 .gradle/
 build/
