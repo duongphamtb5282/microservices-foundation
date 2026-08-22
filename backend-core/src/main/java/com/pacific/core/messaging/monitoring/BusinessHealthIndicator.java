@@ -1,6 +1,7 @@
 package com.pacific.core.messaging.monitoring;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
@@ -11,6 +12,7 @@ import com.pacific.core.messaging.circuitbreaker.CircuitBreakerService;
 import com.pacific.core.messaging.metrics.BusinessMetricsService;
 
 /** Health indicator that includes business metrics and circuit breaker status. */
+@Slf4j
 @Component
 @ConditionalOnProperty(
     name = "business.health.enabled",
@@ -86,7 +88,9 @@ public class BusinessHealthIndicator implements HealthIndicator {
       return healthBuilder.build();
 
     } catch (Exception e) {
-      return Health.down(e).build();
+      log.error("Business health check failed", e);
+      // Fixed message: do not leak internal exception text into actuator health details (6e)
+      return Health.down().withDetail("error", "Down: business metrics").build();
     }
   }
 

@@ -1,5 +1,6 @@
 package com.pacific.core.service;
 
+import com.pacific.core.cache.CacheAccessException;
 import java.time.Duration;
 import java.util.concurrent.Callable;
 
@@ -41,7 +42,7 @@ public abstract class BaseCacheService {
         return cache.get(key, valueLoader);
       } catch (Exception e) {
         log.error("Error loading cache value for key: {}", key, e);
-        throw new RuntimeException("Error loading cache value", e);
+        throw new CacheAccessException("Error loading cache value", e);
       }
     }
     return null;

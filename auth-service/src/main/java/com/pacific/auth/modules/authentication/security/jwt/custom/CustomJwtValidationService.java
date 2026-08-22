@@ -1,5 +1,7 @@
 package com.pacific.auth.modules.authentication.security.jwt.custom;
 
+import com.pacific.auth.common.exception.InvalidTokenException;
+import com.pacific.auth.common.exception.TokenExpiredException;
 import com.pacific.auth.modules.authentication.security.jwt.common.AbstractJwtValidationService;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtTokenValidationService;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtValidationResult;
@@ -38,7 +40,9 @@ public class CustomJwtValidationService extends AbstractJwtValidationService
       validateTokenClaims(jwt);
       return createSuccessResult(jwt);
     } catch (Exception e) {
-      return createFailureResult(e.getMessage());
+      // Sanitized: never expose decoder/issuer internals to clients (8c); log the real cause.
+      log.warn("Custom JWT token validation failed", e);
+      return createFailureResult("Token validation failed");
     }
   }
 
@@ -46,19 +50,19 @@ public class CustomJwtValidationService extends AbstractJwtValidationService
   protected void validateTokenClaims(Jwt jwt) throws Exception {
     // Check expiration
     if (jwt.getExpiresAt() != null && jwt.getExpiresAt().isBefore(Instant.now())) {
-      throw new IllegalArgumentException("Token has expired");
+      throw new TokenExpiredException("Token has expired");
     }
 
     // Check issuer
     String issuer = jwt.getIssuer() != null ? jwt.getIssuer().toString() : null;
     if (issuer == null || !issuer.equals("auth-service")) {
-      throw new IllegalArgumentException("Invalid token issuer: " + issuer);
+      throw new InvalidTokenException("Invalid token issuer: " + issuer);
     }
 
     // Check token type
     String tokenType = jwt.getClaimAsString("type");
     if (tokenType == null || !"access".equals(tokenType)) {
-      throw new IllegalArgumentException("Invalid token type: " + tokenType);
+      throw new InvalidTokenException("Invalid token type: " + tokenType);
     }
   }
 

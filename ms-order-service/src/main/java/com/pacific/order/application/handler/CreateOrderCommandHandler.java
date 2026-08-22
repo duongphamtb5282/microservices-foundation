@@ -13,8 +13,12 @@ import com.pacific.order.domain.model.Order;
 import com.pacific.order.domain.repository.OrderRepository;
 import com.pacific.order.domain.service.OrderDomainService;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
+import com.pacific.order.infrastructure.exception.IdempotencyReplayException;
+import com.pacific.order.infrastructure.idempotency.entity.OrderIdempotencyEntity;
+import com.pacific.order.infrastructure.idempotency.repository.OrderIdempotencyJpaRepository;
 import com.pacific.order.infrastructure.outbox.service.OrderOutboxService;
 import java.time.Instant;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.CacheManager;
@@ -34,12 +38,39 @@ public class CreateOrderCommandHandler
   private final EventStoreRepository eventStoreRepository;
   private final BusinessMetricsService businessMetricsService;
   private final CacheManager cacheManager;
+  private final OrderIdempotencyJpaRepository idempotencyRepository;
 
   @Override
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public CommandResult<OrderResponse> handle(CreateOrderCommand command) {
     try {
       log.info("Handling CreateOrderCommand for user: {}", command.getUserId());
+
+      // 0. Idempotency pre-check (idempotency-proposal.md): same user + key => replay.
+      //    Runs inside this tx; the (user_id, key) PK backstops concurrent duplicates — a losing
+      //    insert raises DataIntegrityViolationException, which propagates and rolls back this
+      //    attempt; the client's retry then finds the winner's row here and replays it.
+      String idempotencyKey = command.getIdempotencyKey();
+      if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+        Optional<OrderIdempotencyEntity> existing =
+            idempotencyRepository.findByUserIdAndIdempotencyKey(
+                command.getUserId(), idempotencyKey);
+        if (existing.isPresent()) {
+          Order replayedOrder =
+              orderRepository
+                  .findById(existing.get().getOrderId())
+                  .orElseThrow(
+                      () ->
+                          new IdempotencyReplayException(
+                              "Idempotency key maps to missing order "
+                                  + existing.get().getOrderId()));
+          log.info(
+              "Replayed idempotent create-order request (key={}) -> order {}",
+              idempotencyKey,
+              replayedOrder.getId());
+          return CommandResult.success(OrderMapper.toResponse(replayedOrder));
+        }
+      }
 
       // 1. Create domain order
       Order order =
@@ -51,6 +82,13 @@ public class CreateOrderCommandHandler
 
       // 3. Save to database
       Order savedOrder = orderRepository.save(order);
+
+      // 3b. Record the idempotency key in the same tx as the order + outbox row
+      //     (idempotency-proposal.md): atomic — order exists <=> key exists.
+      if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+        idempotencyRepository.save(
+            OrderIdempotencyEntity.of(idempotencyKey, savedOrder.getUserId(), savedOrder.getId()));
+      }
 
       // 4. Create and save event sourcing event
       OrderCreatedEventV2 eventSourcingEvent =

@@ -52,10 +52,6 @@ spring:
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Headers
 
-  # Eureka Client Configuration (Optional)
-  config:
-    import: optional:eureka:
-
 # ==============================================================================
 # SERVER CONFIGURATION
 # ==============================================================================
@@ -158,14 +154,16 @@ api-gateway:
     per-route:
       requests-per-minute: ${GATEWAY_RATE_LIMIT_PER_ROUTE_REQUESTS_PER_MINUTE:100}
 
-  # Eureka Configuration (Optional)
-  eureka:
-    enabled: ${EUREKA_ENABLED:false}
-    client:
-      service-url:
-        default-zone: ${EUREKA_CLIENT_SERVICE_URL_DEFAULT_ZONE:http://localhost:8761/eureka/}
-    instance:
-      prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:true}
+  # JWT Authentication (local RS256 verification against Keycloak JWKS, F-35)
+  # Note: the gateway reads the GATEWAY_JWKS_URL / GATEWAY_ISSUER environment
+  # variables directly, so these keys document the expected environment.
+  jwt:
+    # Keycloak JWKS endpoint used to fetch signing keys
+    jwks-url: ${GATEWAY_JWKS_URL:http://localhost:8080/realms/master/protocol/openid-connect/certs}
+    # Expected issuer claim on accepted tokens
+    issuer: ${GATEWAY_ISSUER:http://localhost:8080/realms/master}
+    # How often cached JWKS keys are refreshed
+    jwks-refresh-interval: ${GATEWAY_JWKS_REFRESH_INTERVAL:PT15M}
 
 # ==============================================================================
 # BACKEND-CORE CONFIGURATION (Minimal for Gateway)

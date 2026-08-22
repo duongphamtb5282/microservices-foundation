@@ -3,6 +3,7 @@ package com.pacific.payment;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Payment Service Application - Microservices Demo
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.ComponentScan;
       "com.pacific.payment",
       "com.pacific.core" // Scan backend-core components
     })
+@EnableScheduling // Payment result outbox relay (F-02 saga return path)
 public class PaymentServiceApplication {
 
   public static void main(String[] args) {

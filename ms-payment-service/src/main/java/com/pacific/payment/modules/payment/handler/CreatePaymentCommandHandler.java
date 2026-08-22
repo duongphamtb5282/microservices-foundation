@@ -7,7 +7,10 @@ import com.pacific.payment.modules.payment.command.CreatePaymentCommand;
 import com.pacific.payment.modules.payment.domain.Payment;
 import com.pacific.payment.modules.payment.domain.PaymentStatus;
 import com.pacific.payment.modules.payment.dto.PaymentResponse;
+import com.pacific.payment.modules.payment.event.PaymentResultEvent;
+import com.pacific.payment.modules.payment.exception.PaymentNotFoundException;
 import com.pacific.payment.modules.payment.mapper.PaymentMapper;
+import com.pacific.payment.modules.payment.outbox.PaymentOutboxService;
 import com.pacific.payment.modules.payment.repository.PaymentRepository;
 import com.pacific.payment.modules.payment.service.PaymentService;
 import java.time.LocalDateTime;
@@ -26,18 +29,28 @@ public class CreatePaymentCommandHandler
 
   private final PaymentRepository paymentRepository;
   private final PaymentService paymentService;
+  private final PaymentOutboxService outboxService;
   private final BusinessMetricsService businessMetricsService;
 
   @Override
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public CommandResult<PaymentResponse> handle(CreatePaymentCommand command) {
     try {
       log.info("Handling CreatePaymentCommand for order: {}", command.getOrderId());
 
-      // 1. Check if payment already exists (idempotency)
+      // 1. Check if payment already exists (idempotency) — the unique(order_id) index backstops
+      //    the check-then-act race; a losing insert raises DataIntegrityViolationException, the tx
+      //    rolls back, and the retry replays this existing payment (idempotency-proposal.md P3).
       if (paymentService.existsByOrderId(command.getOrderId())) {
         log.warn("Payment already exists for order: {}", command.getOrderId());
-        Payment existing = paymentRepository.findByOrderId(command.getOrderId()).orElseThrow();
+        Payment existing =
+            paymentRepository
+                .findByOrderId(command.getOrderId())
+                .orElseThrow(
+                    () ->
+                        new PaymentNotFoundException(
+                            "Payment exists check passed but no row found for order "
+                                + command.getOrderId()));
         return CommandResult.success(PaymentMapper.toResponse(existing));
       }
 
@@ -69,7 +82,28 @@ public class CreatePaymentCommandHandler
       // 6. Save payment
       Payment savedPayment = paymentRepository.save(payment);
 
-      // 7. Record business metrics
+      // 7. Saga return path (F-02): record the payment result in the SAME transaction via the
+      //    outbox — the order service will settle the order (CONFIRMED/FAILED) from it. The
+      //    replay path above never records again, so an order gets exactly one result event.
+      if (savedPayment.getStatus() == PaymentStatus.COMPLETED) {
+        outboxService.record(
+            PaymentResultEvent.completed(
+                savedPayment.getId(),
+                savedPayment.getOrderId(),
+                savedPayment.getUserId(),
+                savedPayment.getGatewayTransactionId(),
+                command.getCorrelationId()));
+      } else if (savedPayment.getStatus() == PaymentStatus.FAILED) {
+        outboxService.record(
+            PaymentResultEvent.failed(
+                savedPayment.getId(),
+                savedPayment.getOrderId(),
+                savedPayment.getUserId(),
+                savedPayment.getGatewayResponse(),
+                command.getCorrelationId()));
+      }
+
+      // 8. Record business metrics
       boolean paymentSuccessful = savedPayment.getStatus() == PaymentStatus.COMPLETED;
       businessMetricsService.recordPaymentProcessed(
           savedPayment.getUserId(), savedPayment.getAmount().doubleValue(), paymentSuccessful);
@@ -83,13 +117,20 @@ public class CreatePaymentCommandHandler
       return CommandResult.success(PaymentMapper.toResponse(savedPayment));
 
     } catch (IllegalArgumentException e) {
+      // Business validation failure before any write — returning failure is safe (nothing to
+      // commit; no writes have happened yet)
       log.error("Invalid payment: {}", e.getMessage());
       return CommandResult.failure(e.getMessage(), "INVALID_PAYMENT");
 
     } catch (Exception e) {
-      log.error("Failed to create payment for order: {}", command.getOrderId(), e);
-      return CommandResult.failure(
-          "Failed to create payment: " + e.getMessage(), "PAYMENT_CREATION_FAILED");
+      // F-25: propagate so @Transactional rolls back. Returning failure here would commit the
+      // payment while the client sees an error — a retry would then replay an already-saved
+      // payment and the saga result event would never fire.
+      log.error(
+          "Failed to create payment for order: {} — transaction will roll back",
+          command.getOrderId(),
+          e);
+      throw e;
     }
   }
 }

@@ -3,6 +3,7 @@ package com.pacific.order.infrastructure.eventsourcing.service;
 import com.pacific.order.domain.event.OrderAggregate;
 import com.pacific.order.domain.event.OrderDomainEvent;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
+import com.pacific.order.infrastructure.exception.EventStoreException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -47,8 +48,9 @@ public class EventSourcingService {
       return Optional.of(aggregate);
 
     } catch (Exception e) {
+      // Do not mask a corrupt/failed event store as "not found" — fail loudly
       log.error("Failed to rebuild aggregate: {}", orderId, e);
-      return Optional.empty();
+      throw new EventStoreException("Failed to rebuild aggregate: " + orderId, e);
     }
   }
 
@@ -74,7 +76,8 @@ public class EventSourcingService {
 
     } catch (Exception e) {
       log.error("Failed to rebuild aggregate: {} from version: {}", orderId, fromVersion, e);
-      return Optional.empty();
+      throw new EventStoreException(
+          "Failed to rebuild aggregate from version: " + orderId + ":" + fromVersion, e);
     }
   }
 
@@ -99,8 +102,9 @@ public class EventSourcingService {
           .build();
 
     } catch (Exception e) {
+      // Do not mask a failed query as an empty page — fail loudly
       log.error("Failed to get order events: {}", orderId, e);
-      return EventSourcingResult.empty();
+      throw new EventStoreException("Failed to get order events: " + orderId, e);
     }
   }
 

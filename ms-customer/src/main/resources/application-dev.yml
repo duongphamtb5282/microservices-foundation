@@ -18,6 +18,12 @@ spring:
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:http://localhost:8080/realms/auth-service}
+
 mongo:
   host: ${MONGODB_HOST:localhost}
   port: ${MONGODB_PORT:27017}
@@ -41,18 +47,7 @@ customer:
     max-wait-time: ${MONGODB_MAX_WAIT_TIME:120000}
     max-connection-idle-time: ${MONGODB_MAX_CONNECTION_IDLE_TIME:30000}
 
-  cache:
-    ttl: ${CACHE_TTL:300}
-    size: ${CACHE_SIZE:5000}
-    caffeine:
-      spec: ${CACHE_SPEC:maximumSize=5000,expireAfterWrite=5m}
-
   security:
-    oauth2:
-      resourceserver:
-        jwt:
-          enabled: true
-          issuer-uri: http://localhost:8080/realms/auth-service
     encryption:
       enabled: ${CUSTOMER_ENCRYPTION_ENABLED:false}
 

@@ -1,5 +1,6 @@
 package com.pacific.auth.config;
 
+import com.pacific.auth.common.exception.CacheConfigurationException;
 import jakarta.annotation.PostConstruct;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
@@ -35,7 +36,7 @@ public class CacheKeyProperties {
   @PostConstruct
   void validateConfiguration() {
     if (!StringUtils.hasText(servicePrefix)) {
-      throw new IllegalStateException(
+      throw new CacheConfigurationException(
           "auth-service.cache.service-prefix must be configured (property missing)");
     }
   }

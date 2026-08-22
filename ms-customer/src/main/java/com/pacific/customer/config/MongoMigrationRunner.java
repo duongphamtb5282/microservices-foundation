@@ -33,7 +33,7 @@ public class MongoMigrationRunner {
       log.info("✅ Migration '{}' completed successfully", migrationId);
     } catch (Exception e) {
       log.error("❌ Migration '{}' failed: {}", migrationId, e.getMessage(), e);
-      throw new RuntimeException("Migration failed: " + migrationId, e);
+      throw new MongoMigrationException("Migration failed: " + migrationId, e);
     }
   }
 

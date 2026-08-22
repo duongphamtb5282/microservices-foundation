@@ -38,7 +38,8 @@ public class DatabaseConfiguration {
 
   private final DatabaseProperties properties;
 
-  @Value("${spring.jpa.hibernate.ddl-auto:update}")
+  // Schema is owned by Liquibase migrations; ddl-auto=update would drift prod schemas (S-04)
+  @Value("${spring.jpa.hibernate.ddl-auto:none}")
   private String ddlAuto;
 
   @Value("${spring.jpa.show-sql:false}")

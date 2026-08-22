@@ -31,7 +31,7 @@ public class UserRegistrationService {
   @Autowired(required = false)
   private EventPublisher eventPublisher;
 
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   @Audit(entityType = "User", action = AuditAction.CREATED, details = "User registration completed")
   public User registerUser(User user) {
     try {

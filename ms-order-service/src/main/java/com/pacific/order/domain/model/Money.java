@@ -1,5 +1,7 @@
 package com.pacific.order.domain.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.Currency;
@@ -11,7 +13,11 @@ public class Money {
   BigDecimal amount;
   Currency currency;
 
-  public Money(BigDecimal amount, Currency currency) {
+  // @JsonCreator: Money has multiple constructors, so Jackson cannot infer the creator on its own
+  // (needed for outbox payload round-trips, ADR-0001)
+  @JsonCreator
+  public Money(
+      @JsonProperty("amount") BigDecimal amount, @JsonProperty("currency") Currency currency) {
     if (amount == null) {
       throw new IllegalArgumentException("Amount cannot be null");
     }

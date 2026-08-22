@@ -80,7 +80,7 @@ public class AuthenticationService {
     }
   }
 
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public AuthenticationResponseDto refreshToken(final RefreshTokenRequestDto request) {
     if (statelessRefreshTokenService != null) {
       // Use stateless refresh token service
@@ -102,7 +102,7 @@ public class AuthenticationService {
     }
   }
 
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public void logout(final String refreshToken) {
     if (statelessRefreshTokenService != null) {
       statelessRefreshTokenService.revokeRefreshToken(refreshToken);

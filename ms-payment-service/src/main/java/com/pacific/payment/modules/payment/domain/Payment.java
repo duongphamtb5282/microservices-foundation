@@ -1,5 +1,6 @@
 package com.pacific.payment.modules.payment.domain;
 
+import com.pacific.payment.modules.payment.exception.PaymentAlreadyTerminalException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
@@ -54,7 +55,7 @@ public class Payment {
   /** Complete the payment */
   public void complete(String transactionId, String response) {
     if (status.isTerminal()) {
-      throw new IllegalStateException("Payment is already in terminal state: " + status);
+      throw new PaymentAlreadyTerminalException("Payment is already in terminal state: " + status);
     }
     this.status = PaymentStatus.COMPLETED;
     this.gatewayTransactionId = transactionId;
@@ -64,7 +65,7 @@ public class Payment {
   /** Fail the payment */
   public void fail(String response) {
     if (status.isTerminal()) {
-      throw new IllegalStateException("Payment is already in terminal state: " + status);
+      throw new PaymentAlreadyTerminalException("Payment is already in terminal state: " + status);
     }
     this.status = PaymentStatus.FAILED;
     this.gatewayResponse = response;

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
 import com.pacific.core.messaging.cqrs.command.Command;
+import com.pacific.core.messaging.cqrs.command.CommandBusException;
 import com.pacific.core.messaging.cqrs.command.CommandBus;
 import com.pacific.core.messaging.cqrs.command.CommandHandler;
 import com.pacific.core.messaging.cqrs.command.CommandResult;
@@ -53,9 +54,9 @@ public class KafkaCommandBus implements CommandBus {
           duration,
           result.isSuccess());
 
-      // Publish command executed event (if enabled)
+      // Command events are not published (F-01 - topic unused; CQRS is read-path only)
       if (result.isSuccess() && properties.getCqrs().isEventStoreEnabled()) {
-        publishCommandEvent(command, result);
+        log.debug("Event store enabled but command event publishing is disabled (F-01)");
       }
 
       return result;
@@ -68,7 +69,8 @@ public class KafkaCommandBus implements CommandBus {
           duration,
           e.getMessage(),
           e);
-      return CommandResult.failure(e.getMessage());
+      // Sanitize: do not leak internal exception messages to API consumers (6a)
+      return CommandResult.failure("Unexpected error processing command", "INTERNAL_ERROR");
     }
   }
 
@@ -83,7 +85,7 @@ public class KafkaCommandBus implements CommandBus {
       Class<C> commandClass, CommandHandler<C, R> handler) {
 
     if (handlers.containsKey(commandClass)) {
-      throw new IllegalStateException(
+      throw new CommandBusException(
           "Handler already registered for command: " + commandClass.getSimpleName());
     }
 
@@ -97,29 +99,10 @@ public class KafkaCommandBus implements CommandBus {
     CommandHandler<C, R> handler = (CommandHandler<C, R>) handlers.get(command.getClass());
 
     if (handler == null) {
-      throw new IllegalStateException(
+      throw new CommandBusException(
           "No handler registered for command: " + command.getClass().getSimpleName());
     }
 
     return handler;
-  }
-
-  /** Publish command executed event to Kafka. */
-  private <C extends Command<R>, R> void publishCommandEvent(C command, CommandResult<R> result) {
-    try {
-      String topic = properties.getCqrs().getCommandTopic();
-
-      // Create event (you would create a proper CommandExecutedEvent class)
-      log.debug(
-          "Publishing command executed event for {} to topic {}", command.getCommandType(), topic);
-
-      // In a full implementation, create and publish a CommandExecutedEvent
-      // eventPublisher.publish(topic, command.getCommandId(), event);
-
-    } catch (Exception e) {
-      log.error(
-          "Failed to publish command event for {}: {}", command.getCommandType(), e.getMessage());
-      // Don't fail the command execution if event publishing fails
-    }
   }
 }

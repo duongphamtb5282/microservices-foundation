@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.cqrs.query.Query;
 import com.pacific.core.messaging.cqrs.query.QueryBus;
+import com.pacific.core.messaging.cqrs.query.QueryBusException;
+import com.pacific.core.messaging.cqrs.query.QueryExecutionException;
 import com.pacific.core.messaging.cqrs.query.QueryHandler;
 import com.pacific.core.messaging.cqrs.query.QueryResult;
 
@@ -44,12 +46,13 @@ public class SimpleQueryBus implements QueryBus {
     } catch (Exception e) {
       long duration = System.currentTimeMillis() - startTime;
       log.error(
-          "Failed to execute query {} after {}ms: {}",
+          "Failed to execute query {} after {}ms",
           query.getQueryType(),
           duration,
-          e.getMessage(),
           e);
-      return QueryResult.empty();
+      // Rethrow so query failures surface as errors (e.g. HTTP 500 via the global advice)
+      // instead of masquerading as an empty result (6b).
+      throw new QueryExecutionException("Query execution failed: " + query.getQueryType(), e);
     }
   }
 
@@ -64,7 +67,7 @@ public class SimpleQueryBus implements QueryBus {
       Class<Q> queryClass, QueryHandler<Q, R> handler) {
 
     if (handlers.containsKey(queryClass)) {
-      throw new IllegalStateException(
+      throw new QueryBusException(
           "Handler already registered for query: " + queryClass.getSimpleName());
     }
 
@@ -78,7 +81,7 @@ public class SimpleQueryBus implements QueryBus {
     QueryHandler<Q, R> handler = (QueryHandler<Q, R>) handlers.get(query.getClass());
 
     if (handler == null) {
-      throw new IllegalStateException(
+      throw new QueryBusException(
           "No handler registered for query: " + query.getClass().getSimpleName());
     }
 

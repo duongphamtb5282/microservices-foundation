@@ -195,9 +195,7 @@ public class GlobalExceptionHandler {
         request.getRequestURI());
 
     List<FieldErrorDto> fieldErrors =
-        ex.getBindingResult().getFieldErrors().stream()
-            .map(this::mapFieldError)
-            .collect(Collectors.toList());
+        ex.getBindingResult().getFieldErrors().stream().map(this::mapFieldError).toList();
 
     Map<String, String> validationErrors =
         ex.getBindingResult().getFieldErrors().stream()
@@ -232,9 +230,7 @@ public class GlobalExceptionHandler {
     log.warn("Bind validation error: {} - Path: {}", ex.getMessage(), request.getRequestURI());
 
     List<FieldErrorDto> fieldErrors =
-        ex.getBindingResult().getFieldErrors().stream()
-            .map(this::mapFieldError)
-            .collect(Collectors.toList());
+        ex.getBindingResult().getFieldErrors().stream().map(this::mapFieldError).toList();
 
     Map<String, String> validationErrors =
         ex.getBindingResult().getFieldErrors().stream()

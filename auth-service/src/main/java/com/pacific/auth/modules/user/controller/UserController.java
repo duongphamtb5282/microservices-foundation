@@ -17,7 +17,6 @@ import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 /** User information controller with advanced caching strategies */
@@ -112,7 +111,6 @@ public class UserController {
       security = @SecurityRequirement(name = "bearerAuth"))
   @GetMapping
   @Cacheable(value = "all-users", key = "#page + '-' + #size")
-  @Transactional(readOnly = true)
   public ResponseEntity<Map<String, Object>> getAllUsers(
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
     log.info("🔍 Retrieving all users - page: {}, size: {}", page, size);

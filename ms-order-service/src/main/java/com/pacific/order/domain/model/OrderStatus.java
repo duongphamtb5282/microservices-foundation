@@ -37,7 +37,9 @@ public enum OrderStatus {
     }
 
     return switch (this) {
-      case PENDING -> newStatus == CONFIRMED || newStatus == CANCELLED;
+        // F-02 saga return path: a FAILED payment settles a PENDING order as FAILED (was stuck
+        // PENDING forever before the payment-result consumer existed)
+      case PENDING -> newStatus == CONFIRMED || newStatus == CANCELLED || newStatus == FAILED;
       case CONFIRMED -> newStatus == PROCESSING || newStatus == CANCELLED;
       case PROCESSING -> newStatus == SHIPPED || newStatus == FAILED || newStatus == CANCELLED;
       case SHIPPED -> newStatus == DELIVERED || newStatus == FAILED;

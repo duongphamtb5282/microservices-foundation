@@ -51,6 +51,7 @@ public class OrderControllerV1 {
   public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
       @RequestHeader("Authorization") String token,
       @RequestHeader(value = "X-API-Key", required = false) String apiKey,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreateOrderRequest request) {
 
     log.info("V1 - Received create order request");
@@ -79,6 +80,7 @@ public class OrderControllerV1 {
             .items(request.getItems())
             .initiator(authResponse.getUsername())
             .correlationId(UUID.randomUUID().toString())
+            .idempotencyKey(trimToNull(idempotencyKey))
             .build();
 
     CommandResult<OrderResponse> result = commandBus.execute(command);
@@ -120,7 +122,8 @@ public class OrderControllerV1 {
       }
     } else if (apiKey != null) {
       if (authClient.validateApiKey(new ValidateApiKeyRequest(apiKey))) {
-        userId = "service-user";
+        // F-08: API-key access carries no user identity — do not fabricate one
+        log.info("V1 - Order accessed via API key: {}", orderId);
       }
     }
 
@@ -145,8 +148,6 @@ public class OrderControllerV1 {
 
     return ResponseEntity.ok()
         .header("X-API-Version", "1.0")
-        .header("X-Cache-Status", "HIT")
-        .header("X-Response-Time", "45ms")
         .body(ApiResponse.success(result.getData().get(), "Order found"));
   }
 
@@ -234,5 +235,13 @@ public class OrderControllerV1 {
         .header("X-API-Version", "1.0")
         .header("X-Service-Features", "basic")
         .body(ApiResponse.success("Order Service V1 is healthy", "SERVICE_HEALTHY"));
+  }
+
+  /** Blank -> null so empty Idempotency-Key headers behave as "not supplied". */
+  private static String trimToNull(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return value.trim();
   }
 }

@@ -1,5 +1,7 @@
 package com.pacific.auth.modules.authentication.security.jwt.keycloak;
 
+import com.pacific.auth.common.exception.InvalidTokenException;
+import com.pacific.auth.common.exception.TokenExpiredException;
 import com.pacific.auth.modules.authentication.security.jwt.common.AbstractJwtValidationService;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtTokenValidationService;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtValidationResult;
@@ -44,7 +46,9 @@ public class KeycloakTokenValidationService extends AbstractJwtValidationService
       validateTokenClaims(jwt);
       return createSuccessResult(jwt);
     } catch (Exception e) {
-      return createFailureResult(e.getMessage());
+      // Sanitized: never expose decoder/issuer internals to clients (8c); log the real cause.
+      log.warn("Keycloak token validation failed", e);
+      return createFailureResult("Token validation failed");
     }
   }
 
@@ -52,19 +56,19 @@ public class KeycloakTokenValidationService extends AbstractJwtValidationService
   protected void validateTokenClaims(Jwt jwt) throws Exception {
     // Check expiration
     if (jwt.getExpiresAt() != null && jwt.getExpiresAt().isBefore(Instant.now())) {
-      throw new IllegalArgumentException("Token has expired");
+      throw new TokenExpiredException("Token has expired");
     }
 
     // Check issuer
     String issuer = jwt.getIssuer() != null ? jwt.getIssuer().toString() : null;
     if (issuer == null || !issuer.equals(keycloakProperties.getIssuerUri())) {
-      throw new IllegalArgumentException("Invalid token issuer: " + issuer);
+      throw new InvalidTokenException("Invalid token issuer: " + issuer);
     }
 
     // Check audience only if configured to do so
     if (keycloakProperties.isVerifyTokenAudience()) {
       if (jwt.getAudience() == null || jwt.getAudience().isEmpty()) {
-        throw new IllegalArgumentException("Token missing audience");
+        throw new InvalidTokenException("Token missing audience");
       }
     } else {
       log.debug("Skipping audience verification (verify-token-audience=false)");

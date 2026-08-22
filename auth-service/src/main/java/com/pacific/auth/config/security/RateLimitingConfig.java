@@ -145,18 +145,14 @@ public class RateLimitingConfig {
     long currentTime = System.currentTimeMillis();
     long windowSize = rateLimitingProperties.getWindowSizeMillis();
 
+    // Remove expired timestamp entries first (keep entries for 2 windows so counters stay
+    // consistent with the active window).
     keyTimestamps.entrySet().removeIf(entry -> (currentTime - entry.getValue()) > windowSize * 2);
 
-    // Remove corresponding counter entries
-    keyTimestamps
-        .keySet()
-        .forEach(
-            key -> {
-              if (!keyTimestamps.containsKey(key)) {
-                requestCounts.remove(key);
-                loginAttempts.remove(key);
-              }
-            });
+    // Remove corresponding counter entries: any counter whose key is no longer in
+    // keyTimestamps belongs to an expired window and must be pruned as well.
+    requestCounts.keySet().removeIf(key -> !keyTimestamps.containsKey(key));
+    loginAttempts.keySet().removeIf(key -> !keyTimestamps.containsKey(key));
 
     log.debug("Rate limiting cleanup completed. Active keys: {}", keyTimestamps.size());
   }

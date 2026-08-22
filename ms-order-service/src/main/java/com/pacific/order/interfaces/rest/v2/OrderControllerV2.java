@@ -9,7 +9,7 @@ import com.pacific.order.application.command.CreateOrderCommand;
 import com.pacific.order.application.dto.CreateOrderRequest;
 import com.pacific.order.application.dto.OrderResponse;
 import com.pacific.order.application.query.GetOrderByIdQuery;
-import com.pacific.order.application.query.GetOrdersByUserQuery;
+import com.pacific.order.application.query.GetUserOrdersPageQuery;
 import com.pacific.order.infrastructure.client.AuthServiceClient;
 import com.pacific.order.infrastructure.client.dto.ValidateApiKeyRequest;
 import com.pacific.order.infrastructure.client.dto.ValidateTokenRequest;
@@ -24,7 +24,6 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -56,6 +55,7 @@ public class OrderControllerV2 {
       @RequestHeader("Authorization") String token,
       @RequestHeader(value = "X-API-Key", required = false) String apiKey,
       @RequestHeader(value = "X-Client-Version", defaultValue = "2.0") String clientVersion,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreateOrderRequest request) {
 
     log.info("V2 - Received create order request from client version: {}", clientVersion);
@@ -84,6 +84,7 @@ public class OrderControllerV2 {
             .items(request.getItems())
             .initiator(authResponse.getUsername())
             .correlationId(UUID.randomUUID().toString())
+            .idempotencyKey(trimToNull(idempotencyKey))
             .build();
 
     CommandResult<OrderResponse> result = commandBus.execute(command);
@@ -102,6 +103,14 @@ public class OrderControllerV2 {
         .header("X-Order-Id", result.getData().getOrderId())
         .header("X-Rate-Limit-Remaining", "45") // Example rate limit info
         .body(ApiResponse.success(result.getData(), "Order created successfully"));
+  }
+
+  /** Blank -> null so empty Idempotency-Key headers behave as "not supplied". */
+  private static String trimToNull(String value) {
+    if (value == null || value.isBlank()) {
+      return null;
+    }
+    return value.trim();
   }
 
   @GetMapping("/{orderId}")
@@ -126,7 +135,8 @@ public class OrderControllerV2 {
       }
     } else if (apiKey != null) {
       if (authClient.validateApiKey(new ValidateApiKeyRequest(apiKey))) {
-        userId = "service-user";
+        // F-08: API-key access carries no user identity — do not fabricate one
+        log.info("V2 - Order accessed via API key: {} (client: {})", orderId, clientVersion);
       }
     }
 
@@ -145,7 +155,7 @@ public class OrderControllerV2 {
           .body(ApiResponse.error("Order not found", "ORDER_NOT_FOUND"));
     }
 
-    // Enhanced security logging
+    // Security logging
     if (userId != null) {
       log.info(
           "V2 - Order accessed by user: {} for order: {} (client: {})",
@@ -156,8 +166,6 @@ public class OrderControllerV2 {
 
     return ResponseEntity.ok()
         .header("X-API-Version", "2.0")
-        .header("X-Cache-Status", "HIT") // Would be determined by actual cache status
-        .header("X-Response-Time", "45ms") // Would be calculated
         .body(ApiResponse.success(result.getData().get(), "Order found"));
   }
 
@@ -180,21 +188,24 @@ public class OrderControllerV2 {
         size,
         status);
 
-    // In V2, this would use enhanced query with filtering and pagination
-    GetOrdersByUserQuery query =
-        GetOrdersByUserQuery.builder()
+    // Real DB-side pagination (F-19): LIMIT/OFFSET + count in one query, no in-memory slicing.
+    GetUserOrdersPageQuery query =
+        GetUserOrdersPageQuery.builder()
             .userId(userId)
+            .page(Math.max(page, 0))
+            .size(Math.min(Math.max(size, 1), GetUserOrdersPageQuery.MAX_PAGE_SIZE))
             .correlationId(UUID.randomUUID().toString())
             .build();
 
-    QueryResult<List<OrderResponse>> result = queryBus.execute(query);
+    QueryResult<Page<OrderResponse>> result = queryBus.execute(query);
 
-    // Convert to paginated response (simplified for demo)
-    Page<OrderResponse> pageResult =
-        new org.springframework.data.domain.PageImpl<>(
-            result.getData().orElse(List.of()),
-            PageRequest.of(page, size),
-            result.getData().map(List::size).orElse(0));
+    if (result.getData().isEmpty()) {
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+          .header("X-API-Version", "2.0")
+          .body(ApiResponse.error("Failed to retrieve orders", "QUERY_FAILED"));
+    }
+
+    Page<OrderResponse> pageResult = result.getData().get();
 
     return ResponseEntity.ok()
         .header("X-API-Version", "2.0")
@@ -212,7 +223,7 @@ public class OrderControllerV2 {
       @RequestHeader(value = "X-API-Key", required = false) String apiKey,
       @RequestBody BulkCancelRequest request) {
 
-    log.info("V2 - Received bulk cancel request for {} orders", request.getOrderIds().size());
+    log.info("V2 - Received bulk cancel request for {} orders", request.orderIds().size());
 
     // Validate authentication
     ValidateTokenResponse authResponse = authClient.validateToken(new ValidateTokenRequest(token));
@@ -224,19 +235,13 @@ public class OrderControllerV2 {
     }
 
     // Process bulk cancellation (simplified implementation)
-    List<String> orderIds = request.getOrderIds();
-    BulkOperationResult result =
-        BulkOperationResult.builder()
-            .totalRequested(orderIds.size())
-            .successful(0)
-            .failed(0)
-            .results(List.of())
-            .build();
+    List<String> orderIds = request.orderIds();
+    BulkOperationResult result = new BulkOperationResult(orderIds.size(), 0, 0, List.of());
 
     log.info(
         "V2 - Bulk cancel completed: {}/{} orders processed",
-        result.getSuccessful(),
-        result.getTotalRequested());
+        result.successful(),
+        result.totalRequested());
 
     return ResponseEntity.ok()
         .header("X-API-Version", "2.0")
@@ -302,12 +307,11 @@ public class OrderControllerV2 {
   @Operation(summary = "Order service health (V2)", hidden = true)
   public ResponseEntity<ApiResponse<ServiceHealth>> health() {
     ServiceHealth health =
-        ServiceHealth.builder()
-            .version("2.0")
-            .status("UP")
-            .timestamp(java.time.Instant.now())
-            .features(List.of("pagination", "filtering", "bulk-operations", "enhanced-security"))
-            .build();
+        new ServiceHealth(
+            "2.0",
+            "UP",
+            java.time.Instant.now(),
+            List.of("pagination", "filtering", "bulk-operations", "enhanced-security"));
 
     return ResponseEntity.ok()
         .header("X-API-Version", "2.0")
@@ -316,186 +320,13 @@ public class OrderControllerV2 {
   }
 
   /** DTO for bulk cancel request (V2 feature). */
-  public static class BulkCancelRequest {
-    private List<String> orderIds;
-    private String reason;
-
-    public List<String> getOrderIds() {
-      return orderIds;
-    }
-
-    public void setOrderIds(List<String> orderIds) {
-      this.orderIds = orderIds;
-    }
-
-    public String getReason() {
-      return reason;
-    }
-
-    public void setReason(String reason) {
-      this.reason = reason;
-    }
-  }
+  public record BulkCancelRequest(List<String> orderIds, String reason) {}
 
   /** Result for bulk operations (V2 feature). */
-  public static class BulkOperationResult {
-    private int totalRequested;
-    private int successful;
-    private int failed;
-    private List<String> results;
-
-    public static BulkOperationResultBuilder builder() {
-      return new BulkOperationResultBuilder();
-    }
-
-    // Getters and setters
-    public int getTotalRequested() {
-      return totalRequested;
-    }
-
-    public void setTotalRequested(int totalRequested) {
-      this.totalRequested = totalRequested;
-    }
-
-    public int getSuccessful() {
-      return successful;
-    }
-
-    public void setSuccessful(int successful) {
-      this.successful = successful;
-    }
-
-    public int getFailed() {
-      return failed;
-    }
-
-    public void setFailed(int failed) {
-      this.failed = failed;
-    }
-
-    public List<String> getResults() {
-      return results;
-    }
-
-    public void setResults(List<String> results) {
-      this.results = results;
-    }
-
-    public static class BulkOperationResultBuilder {
-      private int totalRequested;
-      private int successful;
-      private int failed;
-      private List<String> results;
-
-      public BulkOperationResultBuilder totalRequested(int totalRequested) {
-        this.totalRequested = totalRequested;
-        return this;
-      }
-
-      public BulkOperationResultBuilder successful(int successful) {
-        this.successful = successful;
-        return this;
-      }
-
-      public BulkOperationResultBuilder failed(int failed) {
-        this.failed = failed;
-        return this;
-      }
-
-      public BulkOperationResultBuilder results(List<String> results) {
-        this.results = results;
-        return this;
-      }
-
-      public BulkOperationResult build() {
-        BulkOperationResult result = new BulkOperationResult();
-        result.totalRequested = this.totalRequested;
-        result.successful = this.successful;
-        result.failed = this.failed;
-        result.results = this.results;
-        return result;
-      }
-    }
-  }
+  public record BulkOperationResult(
+      int totalRequested, int successful, int failed, List<String> results) {}
 
   /** Service health information (V2 feature). */
-  public static class ServiceHealth {
-    private String version;
-    private String status;
-    private java.time.Instant timestamp;
-    private List<String> features;
-
-    public static ServiceHealthBuilder builder() {
-      return new ServiceHealthBuilder();
-    }
-
-    // Getters and setters
-    public String getVersion() {
-      return version;
-    }
-
-    public void setVersion(String version) {
-      this.version = version;
-    }
-
-    public String getStatus() {
-      return status;
-    }
-
-    public void setStatus(String status) {
-      this.status = status;
-    }
-
-    public java.time.Instant getTimestamp() {
-      return timestamp;
-    }
-
-    public void setTimestamp(java.time.Instant timestamp) {
-      this.timestamp = timestamp;
-    }
-
-    public List<String> getFeatures() {
-      return features;
-    }
-
-    public void setFeatures(List<String> features) {
-      this.features = features;
-    }
-
-    public static class ServiceHealthBuilder {
-      private String version;
-      private String status;
-      private java.time.Instant timestamp;
-      private List<String> features;
-
-      public ServiceHealthBuilder version(String version) {
-        this.version = version;
-        return this;
-      }
-
-      public ServiceHealthBuilder status(String status) {
-        this.status = status;
-        return this;
-      }
-
-      public ServiceHealthBuilder timestamp(java.time.Instant timestamp) {
-        this.timestamp = timestamp;
-        return this;
-      }
-
-      public ServiceHealthBuilder features(List<String> features) {
-        this.features = features;
-        return this;
-      }
-
-      public ServiceHealth build() {
-        ServiceHealth health = new ServiceHealth();
-        health.version = this.version;
-        health.status = this.status;
-        health.timestamp = this.timestamp;
-        health.features = this.features;
-        return health;
-      }
-    }
-  }
+  public record ServiceHealth(
+      String version, String status, java.time.Instant timestamp, List<String> features) {}
 }

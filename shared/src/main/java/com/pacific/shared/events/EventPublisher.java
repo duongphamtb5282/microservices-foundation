@@ -1,5 +1,6 @@
 package com.pacific.shared.events;
 
+import com.pacific.shared.exceptions.EventProcessingException;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Component;
 
@@ -33,7 +34,7 @@ public class EventPublisher {
           topic,
           e.getMessage(),
           e);
-      throw new RuntimeException("Failed to publish event", e);
+      throw new EventProcessingException("Failed to publish event", e);
     }
   }
 

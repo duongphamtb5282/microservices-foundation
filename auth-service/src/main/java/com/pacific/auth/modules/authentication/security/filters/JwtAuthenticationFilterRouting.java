@@ -126,7 +126,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
       return customJwtProvider.authenticate(
           createAuthenticationForProvider(token, customJwtProvider));
     } catch (Exception e) {
-      log.debug("Custom JWT provider failed: {}", e.getMessage());
+      // Deliberate fallback chain: a failure in one provider must not fail the request.
+      log.warn("Custom JWT provider failed (trying next provider): {}", e.getMessage());
     }
 
     // Try Keycloak JWT provider as fallback
@@ -135,7 +136,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
       return keycloakJwtProvider.authenticate(
           createAuthenticationForProvider(token, keycloakJwtProvider));
     } catch (Exception e) {
-      log.debug("Keycloak JWT provider failed: {}", e.getMessage());
+      // Deliberate fallback chain: a failure in one provider must not fail the request.
+      log.warn("Keycloak JWT provider failed (trying next provider): {}", e.getMessage());
     }
 
     // Try authentication manager with provider chain
@@ -147,7 +149,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
         log.debug("Authentication credentials: {}", auth.getCredentials());
         return authenticationManager.authenticate(auth);
       } catch (Exception e) {
-        log.debug("Authentication manager failed: {}", e.getMessage());
+        // Deliberate fallback chain: a failure in one provider must not fail the request.
+        log.warn("Authentication manager failed (trying next provider): {}", e.getMessage());
       }
     }
 
@@ -166,7 +169,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
         log.debug("Authentication credentials: {}", auth.getCredentials());
         return authenticationManager.authenticate(auth);
       } catch (Exception e) {
-        log.debug("Authentication manager failed: {}", e.getMessage());
+        // Deliberate fallback chain: a failure in one provider must not fail the request.
+        log.warn("Authentication manager failed (trying next provider): {}", e.getMessage());
       }
     }
 
@@ -177,7 +181,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
       return customJwtProvider.authenticate(
           createAuthenticationForProvider(token, customJwtProvider));
     } catch (Exception e) {
-      log.debug("Custom JWT provider failed: {}", e.getMessage());
+      // Deliberate fallback chain: a failure in one provider must not fail the request.
+      log.warn("Custom JWT provider failed (trying next provider): {}", e.getMessage());
     }
 
     // Try Keycloak JWT provider as fallback
@@ -186,7 +191,8 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
       return keycloakJwtProvider.authenticate(
           createAuthenticationForProvider(token, keycloakJwtProvider));
     } catch (Exception e) {
-      log.debug("Keycloak JWT provider failed: {}", e.getMessage());
+      // Deliberate fallback chain: a failure in one provider must not fail the request.
+      log.warn("Keycloak JWT provider failed (trying next provider): {}", e.getMessage());
     }
 
     log.debug("All authentication methods failed");

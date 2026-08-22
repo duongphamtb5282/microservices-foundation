@@ -6,6 +6,7 @@
                       http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
 
     <include file="db/changelog/changes/V1__create_payments_table.sql"/>
+    <include file="db/changelog/changes/V2__create_payment_outbox_table.sql"/>
 
 </databaseChangeLog>
 

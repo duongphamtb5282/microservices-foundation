@@ -11,8 +11,9 @@ import com.pacific.order.infrastructure.persistence.repository.OrderJpaRepositor
 import java.util.Currency;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -39,9 +40,13 @@ public class OrderRepositoryAdapter implements OrderRepository {
 
   @Override
   public List<Order> findByUserId(String userId) {
-    return jpaRepository.findByUserId(userId).stream()
-        .map(this::toDomain)
-        .collect(Collectors.toList());
+    return jpaRepository.findByUserId(userId).stream().map(this::toDomain).toList();
+  }
+
+  /** Real DB-side pagination (F-19): LIMIT/OFFSET + count in one query, items eager-fetched. */
+  @Override
+  public Page<Order> findByUserId(String userId, Pageable pageable) {
+    return jpaRepository.findByUserId(userId, pageable).map(this::toDomain);
   }
 
   @Override
@@ -52,11 +57,6 @@ public class OrderRepositoryAdapter implements OrderRepository {
   @Override
   public void deleteById(String id) {
     jpaRepository.deleteById(id);
-  }
-
-  @Override
-  public List<Order> findAll() {
-    return jpaRepository.findAll().stream().map(this::toDomain).collect(Collectors.toList());
   }
 
   /** Convert domain Order to OrderEntity */
@@ -82,9 +82,7 @@ public class OrderRepositoryAdapter implements OrderRepository {
     // Convert items
     if (order.getItems() != null) {
       List<OrderItemEntity> itemEntities =
-          order.getItems().stream()
-              .map(item -> toItemEntity(item, entity))
-              .collect(Collectors.toList());
+          order.getItems().stream().map(item -> toItemEntity(item, entity)).toList();
       entity.setItems(itemEntities);
     }
 
@@ -96,8 +94,7 @@ public class OrderRepositoryAdapter implements OrderRepository {
     Money totalAmount =
         new Money(entity.getTotalAmount(), Currency.getInstance(entity.getCurrency()));
 
-    List<OrderItem> items =
-        entity.getItems().stream().map(this::toItemDomain).collect(Collectors.toList());
+    List<OrderItem> items = entity.getItems().stream().map(this::toItemDomain).toList();
 
     return Order.builder()
         .id(entity.getId())

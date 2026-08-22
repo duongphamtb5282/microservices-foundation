@@ -1,5 +1,6 @@
 package com.pacific.auth.modules.database.service;
 
+import com.pacific.auth.common.exception.DatabaseAccessException;
 import com.pacific.core.service.BaseDatabaseService;
 import java.util.List;
 import javax.sql.DataSource;
@@ -40,7 +41,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
   /** Check if user exists in database. Single responsibility: Check user existence. */
   public boolean userExists(String username) {
     try {
-      String sql = "SELECT COUNT(*) FROM auth.users WHERE username = ?";
+      String sql = "SELECT COUNT(*) FROM auth.tbl_user WHERE user_name = ?";
       try (var connection = dataSource.getConnection();
           var statement = connection.prepareStatement(sql)) {
         statement.setString(1, username);
@@ -52,6 +53,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
       }
     } catch (Exception e) {
       log.error("Error checking if user exists: {}", username, e);
+      throw new DatabaseAccessException("Failed to check if user exists: " + username, e);
     }
     return false;
   }
@@ -59,7 +61,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
   /** Check if email exists in database. Single responsibility: Check email existence. */
   public boolean emailExists(String email) {
     try {
-      String sql = "SELECT COUNT(*) FROM auth.users WHERE email = ?";
+      String sql = "SELECT COUNT(*) FROM auth.tbl_user WHERE email = ?";
       try (var connection = dataSource.getConnection();
           var statement = connection.prepareStatement(sql)) {
         statement.setString(1, email);
@@ -71,6 +73,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
       }
     } catch (Exception e) {
       log.error("Error checking if email exists: {}", email, e);
+      throw new DatabaseAccessException("Failed to check if email exists: " + email, e);
     }
     return false;
   }
@@ -78,7 +81,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
   /** Get user count from database. Single responsibility: Get user count. */
   public long getUserCount() {
     try {
-      String sql = "SELECT COUNT(*) FROM auth.users";
+      String sql = "SELECT COUNT(*) FROM auth.tbl_user";
       try (var connection = dataSource.getConnection();
           var statement = connection.prepareStatement(sql);
           var resultSet = statement.executeQuery()) {
@@ -88,6 +91,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
       }
     } catch (Exception e) {
       log.error("Error getting user count", e);
+      throw new DatabaseAccessException("Failed to get user count", e);
     }
     return 0;
   }
@@ -95,7 +99,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
   /** Get role count from database. Single responsibility: Get role count. */
   public long getRoleCount() {
     try {
-      String sql = "SELECT COUNT(*) FROM auth.roles";
+      String sql = "SELECT COUNT(*) FROM auth.tbl_role";
       try (var connection = dataSource.getConnection();
           var statement = connection.prepareStatement(sql);
           var resultSet = statement.executeQuery()) {
@@ -105,6 +109,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
       }
     } catch (Exception e) {
       log.error("Error getting role count", e);
+      throw new DatabaseAccessException("Failed to get role count", e);
     }
     return 0;
   }
@@ -112,7 +117,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
   /** Get permission count from database. Single responsibility: Get permission count. */
   public long getPermissionCount() {
     try {
-      String sql = "SELECT COUNT(*) FROM auth.permissions";
+      String sql = "SELECT COUNT(*) FROM auth.tbl_permission";
       try (var connection = dataSource.getConnection();
           var statement = connection.prepareStatement(sql);
           var resultSet = statement.executeQuery()) {
@@ -122,6 +127,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
       }
     } catch (Exception e) {
       log.error("Error getting permission count", e);
+      throw new DatabaseAccessException("Failed to get permission count", e);
     }
     return 0;
   }

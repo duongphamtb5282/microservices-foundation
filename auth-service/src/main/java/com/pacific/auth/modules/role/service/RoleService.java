@@ -1,5 +1,7 @@
 package com.pacific.auth.modules.role.service;
 
+import com.pacific.auth.common.exception.RoleAlreadyExistsException;
+import com.pacific.auth.common.exception.RoleNotFoundException;
 import com.pacific.auth.modules.role.entity.Role;
 import com.pacific.auth.modules.role.entity.RoleType;
 import com.pacific.auth.modules.role.repository.RoleRepository;
@@ -83,12 +85,13 @@ public class RoleService {
    * @param role the role to create
    * @return the created role
    */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public Role createRole(Role role) {
     log.info("Creating new role: {}", role.getName());
 
     if (roleRepository.existsByName(role.getName())) {
-      throw new IllegalArgumentException("Role with name '" + role.getName() + "' already exists");
+      throw new RoleAlreadyExistsException(
+          "Role with name '" + role.getName() + "' already exists");
     }
 
     return roleRepository.save(role);
@@ -100,12 +103,12 @@ public class RoleService {
    * @param role the role to update
    * @return the updated role
    */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public Role updateRole(Role role) {
     log.info("Updating role: {}", role.getName());
 
     if (!roleRepository.existsById(role.getId())) {
-      throw new IllegalArgumentException("Role with ID '" + role.getId() + "' not found");
+      throw new RoleNotFoundException("Role with ID '" + role.getId() + "' not found");
     }
 
     return roleRepository.save(role);
@@ -116,12 +119,12 @@ public class RoleService {
    *
    * @param id the role ID
    */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public void deleteRole(UUID id) {
     log.info("Deleting role with ID: {}", id);
 
     if (!roleRepository.existsById(id)) {
-      throw new IllegalArgumentException("Role with ID '" + id + "' not found");
+      throw new RoleNotFoundException("Role with ID '" + id + "' not found");
     }
 
     roleRepository.deleteById(id);
@@ -143,7 +146,7 @@ public class RoleService {
    * @param name the role name
    * @return the role
    */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public Role getOrCreateRole(RoleType name) {
     log.debug("Getting or creating role: {}", name);
 

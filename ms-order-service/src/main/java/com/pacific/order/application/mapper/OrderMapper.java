@@ -5,7 +5,6 @@ import com.pacific.order.application.dto.OrderResponse;
 import com.pacific.order.domain.model.Order;
 import com.pacific.order.domain.model.OrderItem;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /** Mapper to convert between domain models and DTOs */
 public class OrderMapper {
@@ -40,7 +39,7 @@ public class OrderMapper {
       return null;
     }
 
-    return items.stream().map(OrderMapper::toItemDto).collect(Collectors.toList());
+    return items.stream().map(OrderMapper::toItemDto).toList();
   }
 
   /** Convert OrderItem to OrderItemDto */

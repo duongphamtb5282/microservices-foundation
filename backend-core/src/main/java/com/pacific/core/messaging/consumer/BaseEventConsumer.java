@@ -13,6 +13,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
 import com.pacific.core.messaging.error.DeadLetterQueue;
+import com.pacific.core.messaging.error.DlqSendException;
 import com.pacific.core.messaging.error.ErrorClassifier;
 import com.pacific.core.messaging.monitoring.KafkaMetrics;
 import com.pacific.core.messaging.retry.BackoffStrategy;
@@ -157,7 +158,8 @@ public abstract class BaseEventConsumer<T> {
           policy,
           context);
     } catch (MaxRetriesExceededException e) {
-      throw new RuntimeException("Max retries exceeded for event: " + context.getEventId(), e);
+      throw new MaxRetriesExceededException(
+          "Max retries exceeded for event: " + context.getEventId(), e);
     }
   }
 
@@ -188,7 +190,10 @@ public abstract class BaseEventConsumer<T> {
       log.info("Event sent to DLQ: {}", context.getEventId());
     } catch (Exception dlqException) {
       log.error("Failed to send event to DLQ: {}", context.getEventId(), dlqException);
-      // In production, you might want to implement a fallback mechanism here
+      // Propagate the DLQ failure so the message is NOT acknowledged and is redelivered;
+      // acknowledging here would permanently lose the event (at-least-once beats loss) (6c).
+      throw new DlqSendException(
+          "Failed to send event to DLQ: " + context.getEventId(), dlqException);
     }
   }
 

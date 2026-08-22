@@ -1,6 +1,9 @@
 spring:
   application:
     name: ms-payment-service
+  threads:
+    virtual:
+      enabled: true # F-32: virtual threads — thread-per-request without a 200-thread platform pool
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payments_db}
@@ -66,6 +69,13 @@ payment:
   messaging:
     order-events-topic: "order.events"
     payment-events-topic: "payment.events"
+  # Payment result outbox (F-02 saga return path) — relay publishes PENDING rows to payment.events
+  outbox:
+    poll-interval: PT0.5S
+    batch-size: 100
+    max-attempts: 5
+    cleanup-interval: PT24H
+    retention-days: 7
 
 # Server Configuration
 server:

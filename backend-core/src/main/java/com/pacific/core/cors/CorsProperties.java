@@ -17,8 +17,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "security.cors")
 public class CorsProperties {
 
-  /** Allowed origins (comma-separated) */
-  private String allowedOrigins = "*";
+  /**
+   * Allowed origins (comma-separated). Defaults to none; callers must configure explicitly (S-03).
+   */
+  private String allowedOrigins = "";
 
   /** Allowed HTTP methods (comma-separated) */
   private String allowedMethods = "GET,POST,PUT,DELETE,OPTIONS";
@@ -34,6 +36,9 @@ public class CorsProperties {
 
   /** Get allowed origins as List */
   public List<String> getAllowedOriginsList() {
+    if (allowedOrigins == null || allowedOrigins.isBlank()) {
+      return List.of();
+    }
     return Arrays.asList(allowedOrigins.split(","));
   }
 

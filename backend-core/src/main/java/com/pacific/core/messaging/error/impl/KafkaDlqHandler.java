@@ -1,6 +1,5 @@
 package com.pacific.core.messaging.error.impl;
 
-import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Instant;
 import java.util.Optional;
@@ -18,6 +17,7 @@ import org.springframework.stereotype.Component;
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
 import com.pacific.core.messaging.error.DeadLetterQueue;
 import com.pacific.core.messaging.error.DlqMessage;
+import com.pacific.core.messaging.error.DlqSendException;
 import com.pacific.core.messaging.error.DlqStats;
 import com.pacific.core.messaging.retry.RetryContext;
 
@@ -82,6 +82,9 @@ public class KafkaDlqHandler implements DeadLetterQueue {
 
     } catch (Exception e) {
       log.error("Failed to send message {} to DLQ topic: {}", context.getMessageId(), dlqTopic, e);
+      // Do not swallow the failure: propagate so the caller does not acknowledge the message
+      // and it is redelivered (at-least-once beats loss) (6c).
+      throw new DlqSendException("Failed to send message to DLQ: " + context.getMessageId(), e);
     }
   }
 
@@ -121,11 +124,16 @@ public class KafkaDlqHandler implements DeadLetterQueue {
     return originalTopic + properties.getRetry().getDlqTopicSuffix();
   }
 
-  /** Get stack trace as string. */
+  /** Get stack trace as string (structured writer, no printStackTrace) (6g). */
   private String getStackTrace(Throwable exception) {
     StringWriter sw = new StringWriter();
-    PrintWriter pw = new PrintWriter(sw);
-    exception.printStackTrace(pw);
+    sw.write(exception.toString());
+    sw.write(System.lineSeparator());
+    for (StackTraceElement element : exception.getStackTrace()) {
+      sw.write("\tat ");
+      sw.write(element.toString());
+      sw.write(System.lineSeparator());
+    }
     return sw.toString();
   }
 }

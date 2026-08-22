@@ -1,5 +1,6 @@
 package com.pacific.auth.modules.authentication.security.jwt.custom;
 
+import com.pacific.auth.common.exception.JwtConfigurationException;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -108,7 +109,7 @@ public class CustomJwtConfig {
       }
     } catch (Exception e) {
       log.error("❌ Failed to create HMAC secret key", e);
-      throw new RuntimeException("Failed to create HMAC secret key", e);
+      throw new JwtConfigurationException("Failed to create HMAC secret key", e);
     }
   }
 }

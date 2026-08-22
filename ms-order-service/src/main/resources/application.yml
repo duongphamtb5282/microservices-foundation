@@ -1,6 +1,9 @@
 spring:
   application:
     name: ms-order-service
+  threads:
+    virtual:
+      enabled: true # F-32: virtual threads — thread-per-request without a 200-thread platform pool
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:orders_db}
@@ -96,6 +99,7 @@ order:
   messaging:
     order-events-topic: "order.events"
     order-commands-topic: "order.commands"
+    payment-events-topic: "payment.events"
 
 # External Services
 services:
@@ -136,13 +140,9 @@ management:
     circuitbreakers:
       enabled: true
 
-  # Distributed Tracing
-  sleuth:
-    sampler:
-      probability: 1.0 # Sample 100% of traces for development
-    zipkin:
-      enabled: true
-      endpoint: http://localhost:9411/api/v2/spans
+# Distributed tracing config removed (F-40): sleuth/zipkin blocks pointed at localhost:9411 but no
+# micrometer-tracing/brave deps exist — the config was dead. Re-add with the tracing deps if tracing
+# is introduced.
 
 # Circuit Breaker Configuration
 resilience4j:

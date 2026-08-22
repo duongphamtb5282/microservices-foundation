@@ -59,8 +59,9 @@ public class HealthMonitoringService implements HealthIndicator {
 
     } catch (Exception e) {
       log.error("Health check failed", e);
+      // Fixed message: do not leak internal exception text into actuator health details (6e)
       return Health.down()
-          .withDetail("error", e.getMessage())
+          .withDetail("error", "Down: backend-core health check failed")
           .withDetail("timestamp", LocalDateTime.now())
           .build();
     }

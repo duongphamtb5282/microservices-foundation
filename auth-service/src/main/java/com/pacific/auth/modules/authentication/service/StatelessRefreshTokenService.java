@@ -1,5 +1,10 @@
 package com.pacific.auth.modules.authentication.service;
 
+import com.pacific.auth.common.exception.InvalidTokenException;
+import com.pacific.auth.common.exception.RefreshTokenProcessingException;
+import com.pacific.auth.common.exception.TokenExpiredException;
+import com.pacific.auth.common.exception.TokenHashingException;
+import com.pacific.auth.common.exception.TokenRevocationException;
 import com.pacific.auth.modules.authentication.dto.request.RefreshTokenRequestDto;
 import com.pacific.auth.modules.authentication.dto.response.AuthenticationResponseDto;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtValidationResult;
@@ -67,13 +72,13 @@ public class StatelessRefreshTokenService {
 
       if (!validation.isValid()) {
         log.warn("Invalid refresh token: {}", validation.getErrorMessage());
-        throw new RuntimeException("Invalid refresh token: " + validation.getErrorMessage());
+        throw new InvalidTokenException("Invalid refresh token: " + validation.getErrorMessage());
       }
 
       // Check if token is blacklisted
       if (isTokenBlacklisted(refreshToken)) {
         log.warn("Refresh token has been revoked");
-        throw new RuntimeException("Refresh token has been revoked");
+        throw new InvalidTokenException("Refresh token has been revoked");
       }
 
       String username = validation.getUsername();
@@ -97,9 +102,12 @@ public class StatelessRefreshTokenService {
           .username(username)
           .build();
 
+    } catch (InvalidTokenException | TokenExpiredException e) {
+      // Token-level failures keep their 401 semantics; only unexpected errors get wrapped.
+      throw e;
     } catch (Exception e) {
-      log.error("Error refreshing token: {}", e.getMessage());
-      throw new RuntimeException("Failed to refresh token: " + e.getMessage());
+      log.error("Error refreshing token", e);
+      throw new RefreshTokenProcessingException("Failed to refresh token", e);
     }
   }
 
@@ -121,7 +129,9 @@ public class StatelessRefreshTokenService {
       redisTemplate.opsForValue().set(tokenBlacklistKey, "revoked", refreshTokenTtl);
 
     } catch (Exception e) {
-      log.warn("Failed to revoke token: {}", e.getMessage());
+      // Fail loud: a blacklist-write failure must not silently keep the token valid.
+      log.error("Failed to revoke token", e);
+      throw new TokenRevocationException("Failed to revoke token", e);
     }
   }
 
@@ -138,7 +148,9 @@ public class StatelessRefreshTokenService {
 
       log.info("Revoked all tokens for user: {}", username);
     } catch (Exception e) {
-      log.warn("Failed to revoke all tokens for user {}: {}", username, e.getMessage());
+      // Fail loud: a blacklist-write failure must not silently keep the user's tokens valid.
+      log.error("Failed to revoke all tokens for user {}", username, e);
+      throw new TokenRevocationException("Failed to revoke all tokens for user: " + username, e);
     }
   }
 
@@ -186,8 +198,10 @@ public class StatelessRefreshTokenService {
       Long tokenCount = redisTemplate.opsForSet().size(userTokensKey);
       return tokenCount != null && tokenCount >= maxRefreshTokensPerUser;
     } catch (Exception e) {
-      log.warn("Error checking token count for user {}: {}", username, e.getMessage());
-      return false;
+      // Fail closed: if we cannot verify the token limit, treat the limit as exceeded
+      // (same posture as isTokenBlacklisted) instead of allowing unbounded token growth.
+      log.error("Error checking token count for user {}: {}", username, e.getMessage(), e);
+      return true;
     }
   }
 
@@ -207,7 +221,7 @@ public class StatelessRefreshTokenService {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
       return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
     } catch (NoSuchAlgorithmException e) {
-      throw new IllegalStateException("SHA-256 not available", e);
+      throw new TokenHashingException("SHA-256 not available", e);
     }
   }
 }

@@ -68,8 +68,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
       } catch (Exception e) {
-        log.debug("Authentication failed: {}", e.getMessage());
-        // Continue without setting authentication (will be handled by other filters)
+        // Deliberate fallback: continue without setting authentication so downstream
+        // filters/providers can attempt their own token validation.
+        log.warn(
+            "JwtAuthenticationFilter authentication failed; continuing as fallback: {}",
+            e.getMessage());
       }
     }
 

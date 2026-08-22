@@ -8,6 +8,7 @@ import com.pacific.core.messaging.retry.RetryContext;
 import com.pacific.core.messaging.retry.RetryPolicy;
 import com.pacific.core.messaging.retry.RetryStrategy;
 import com.pacific.payment.modules.consumer.event.OrderCreatedEvent;
+import com.pacific.payment.modules.consumer.exception.EventRetryableException;
 import com.pacific.payment.modules.consumer.handler.OrderCreatedEventHandler;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
@@ -139,7 +140,8 @@ public class OrderEventConsumer {
           policy,
           context);
     } catch (com.pacific.core.messaging.retry.MaxRetriesExceededException e) {
-      throw new RuntimeException("Max retries exceeded for event: " + context.getEventId(), e);
+      // Typed exception from backend-core — propagate as-is (no ack -> redelivery)
+      throw e;
     }
   }
 
@@ -150,7 +152,7 @@ public class OrderEventConsumer {
     if (errorClassifier.isRetryable(e, retryPolicy)) {
       // For retryable errors, don't acknowledge - let Kafka retry
       log.warn("Retryable error for event: {}, will retry", context.getEventId());
-      throw new RuntimeException("Retryable error: " + e.getMessage(), e);
+      throw new EventRetryableException("Retryable error for event: " + context.getEventId(), e);
     } else {
       // For non-retryable errors, send to DLQ and acknowledge
       log.error("Non-retryable error for event: {}, sending to DLQ", context.getEventId());

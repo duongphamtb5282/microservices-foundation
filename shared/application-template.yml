@@ -304,7 +304,7 @@ auth-service:
       jwt:
         enabled: ${AUTH_JWT_ENABLED:true}
         issuer: ${AUTH_JWT_ISSUER:auth-service}
-        secret: ${AUTH_JWT_SECRET:your-secret-key-change-in-production}
+        secret: ${AUTH_JWT_SECRET} # MUST be injected via environment (S-02), never committed
         
         # Access Token
         access-token:

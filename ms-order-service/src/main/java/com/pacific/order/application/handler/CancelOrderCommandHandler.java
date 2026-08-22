@@ -32,7 +32,7 @@ public class CancelOrderCommandHandler
   private final CacheManager cacheManager;
 
   @Override
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   public CommandResult<OrderResponse> handle(CancelOrderCommand command) {
     try {
       log.info("Handling CancelOrderCommand for order: {}", command.getOrderId());
@@ -91,9 +91,10 @@ public class CancelOrderCommandHandler
       return CommandResult.failure(e.getMessage(), "ORDER_CANNOT_BE_CANCELLED");
 
     } catch (Exception e) {
-      log.error("Failed to cancel order", e);
-      return CommandResult.failure(
-          "Failed to cancel order: " + e.getMessage(), "ORDER_CANCELLATION_FAILED");
+      // F-25: propagate so @Transactional rolls back. Returning failure here would commit the
+      // cancellation while the client sees an error — a retry then acts on already-cancelled state.
+      log.error("Failed to cancel order — transaction will roll back", e);
+      throw e;
     }
   }
 

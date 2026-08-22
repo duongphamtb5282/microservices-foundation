@@ -68,8 +68,11 @@ spec:
           value: "api-gateway"
         - name: SERVER_PORT
           value: "8080"
-        - name: EUREKA_CLIENT_SERVICEURL_DEFAULTZONE
-          value: "http://discovery-service.microservices-prod.svc.cluster.local:8761/eureka/"
+        # Keycloak JWKS endpoint for local JWT verification (F-35) - override with the Keycloak service URL
+        - name: GATEWAY_JWKS_URL
+          value: "http://localhost:8080/realms/master/protocol/openid-connect/certs"
+        - name: GATEWAY_ISSUER
+          value: "http://localhost:8080/realms/master"
         - name: SPRING_CLOUD_GATEWAY_ROUTES_0_URI
           value: "http://auth-service-prod.auth-service-prod.svc.cluster.local:8080"
         - name: SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0

@@ -28,11 +28,10 @@ public class PaymentServiceImpl implements PaymentService {
     log.info(
         "Processing payment for order: {}, amount: {}", payment.getOrderId(), payment.getAmount());
 
+    // F-16: the simulated 500ms Thread.sleep was removed — it ran INSIDE the create-payment
+    // transaction and held a Hikari connection (pool max 10) for 500ms, capping throughput at
+    // ~20 payments/sec per pod. The 90% success-rate simulation below keeps the demo behavior.
     try {
-      // Simulate payment gateway call
-      Thread.sleep(500); // Simulate network latency
-
-      // Simulate 90% success rate
       boolean success = random.nextInt(10) < 9;
 
       if (success) {
@@ -49,14 +48,11 @@ public class PaymentServiceImpl implements PaymentService {
         return false;
       }
 
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      log.error("Payment processing interrupted", e);
-      payment.fail("Payment processing interrupted");
-      return false;
     } catch (Exception e) {
-      log.error("Error processing payment", e);
-      payment.fail("Payment gateway error: " + e.getMessage());
+      // A gateway failure is a business outcome (payment FAILED), not a swallowed error: the
+      // FAILED payment commits and the saga return path settles the order (F-02)
+      log.error("Error processing payment for order: {}", payment.getOrderId(), e);
+      payment.fail("Payment gateway error");
       return false;
     }
   }

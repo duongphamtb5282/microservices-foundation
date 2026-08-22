@@ -2,6 +2,7 @@ package com.pacific.customer.application.controller;
 
 import com.pacific.customer.application.dto.CreateCustomerRequest;
 import com.pacific.customer.application.dto.CustomerResponse;
+import com.pacific.customer.domain.exception.CustomerAlreadyExistsException;
 import com.pacific.customer.domain.model.CustomerProfile;
 import com.pacific.customer.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -13,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -91,6 +93,13 @@ public class CustomerController {
         .map(
             customer ->
                 ResponseEntity.status(HttpStatus.CREATED).body(CustomerResponse.from(customer)))
+        .onErrorResume(
+            // F-27: duplicate email (pre-check or unique-index race) is a client conflict, not a
+            // server error.
+            CustomerAlreadyExistsException.class,
+            e ->
+                Mono.error(
+                    new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered")))
         .doOnSuccess(response -> log.info("Customer created successfully: {}", request.email()))
         .doOnError(
             error ->
@@ -113,12 +122,10 @@ public class CustomerController {
 
     var newPreferences = request.getCustomerPreferences();
 
-    // First update profile, then preferences
+    // 5b partial-update fix: profile and preferences live on the same customer document, so
+    // update them in a single atomic save instead of two independent saves.
     return customerService
-        .updateCustomerProfile(id, newProfile)
-        .flatMap(
-            updatedWithProfile ->
-                customerService.updateCustomerPreferences(updatedWithProfile.id(), newPreferences))
+        .updateCustomer(id, newProfile, newPreferences)
         .map(customer -> ResponseEntity.ok(CustomerResponse.from(customer)))
         .defaultIfEmpty(ResponseEntity.notFound().build())
         .doOnError(error -> log.error("Error updating customer {}: {}", id, error.getMessage()));

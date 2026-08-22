@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
 
+import com.pacific.shared.exceptions.EventProcessingException;
+
 import lombok.extern.slf4j.Slf4j;
 
 /** Generic event consumer configuration for handling events from Kafka */
@@ -62,6 +64,9 @@ public class EventConsumer {
       }
     } catch (Exception e) {
       log.error("Error processing event {}: {}", event.getEventType(), e.getMessage(), e);
+      // Rethrow so the messaging framework's retry/error handling applies instead of silently
+      // dropping the event (10).
+      throw new EventProcessingException("Failed to process event: " + event.getEventType(), e);
     }
   }
 

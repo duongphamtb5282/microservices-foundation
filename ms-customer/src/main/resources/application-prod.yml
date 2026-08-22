@@ -43,12 +43,6 @@ customer:
     heartbeat-interval: ${WEBSOCKET_HEARTBEAT_INTERVAL:60s}
     max-message-size: ${WEBSOCKET_MAX_MESSAGE_SIZE:256KB}
 
-  cache:
-    ttl: ${CACHE_TTL:3600}
-    size: ${CACHE_SIZE:50000}
-    caffeine:
-      spec: ${CACHE_SPEC:maximumSize=50000,expireAfterWrite=1h,recordStats}
-
   security:
     encryption:
       enabled: ${CUSTOMER_ENCRYPTION_ENABLED:true}

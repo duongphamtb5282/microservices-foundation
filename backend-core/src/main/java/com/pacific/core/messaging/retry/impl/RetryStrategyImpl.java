@@ -14,6 +14,7 @@ import com.pacific.core.messaging.error.ErrorClassifier;
 import com.pacific.core.messaging.retry.BackoffStrategy;
 import com.pacific.core.messaging.retry.MaxRetriesExceededException;
 import com.pacific.core.messaging.retry.RetryContext;
+import com.pacific.core.messaging.retry.RetryInterruptedException;
 import com.pacific.core.messaging.retry.RetryPolicy;
 import com.pacific.core.messaging.retry.RetryStrategy;
 
@@ -95,18 +96,21 @@ public class RetryStrategyImpl implements RetryStrategy {
         Duration backoff = backoffStrategy.calculateBackoff(context.getAttemptNumber(), policy);
 
         try {
+          // Cap the blocking backoff sleep at 5s so a retry loop can never block the consumer
+          // thread for the full (potentially unbounded) backoff duration (F-21).
+          long sleepMillis = Math.min(backoff.toMillis(), 5000L);
           log.info(
               "Backing off for {}ms before retry attempt {} (messageId: {})",
-              backoff.toMillis(),
+              sleepMillis,
               context.getAttemptNumber() + 1,
               context.getMessageId());
 
-          Thread.sleep(backoff.toMillis());
+          Thread.sleep(sleepMillis);
 
         } catch (InterruptedException ie) {
           Thread.currentThread().interrupt();
           log.error("Retry interrupted (messageId: {})", context.getMessageId());
-          throw new RuntimeException("Retry interrupted", ie);
+          throw new RetryInterruptedException("Retry interrupted", ie);
         }
       }
     }

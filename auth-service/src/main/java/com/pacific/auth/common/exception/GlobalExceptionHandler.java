@@ -71,6 +71,42 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
   }
 
+  /** Handle RoleNotFoundException Thrown when a role is not found in the system */
+  @ExceptionHandler(RoleNotFoundException.class)
+  public ResponseEntity<ErrorResponse> handleRoleNotFound(
+      RoleNotFoundException ex, WebRequest request) {
+    log.debug("Role not found: {}", ex.getMessage());
+
+    ErrorResponse errorResponse =
+        ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.NOT_FOUND.value())
+            .error(HttpStatus.NOT_FOUND.getReasonPhrase())
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+  }
+
+  /** Handle RoleAlreadyExistsException Thrown when attempting to create a duplicate role */
+  @ExceptionHandler(RoleAlreadyExistsException.class)
+  public ResponseEntity<ErrorResponse> handleRoleAlreadyExists(
+      RoleAlreadyExistsException ex, WebRequest request) {
+    log.warn("Role already exists: {}", ex.getMessage());
+
+    ErrorResponse errorResponse =
+        ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(HttpStatus.CONFLICT.value())
+            .error(HttpStatus.CONFLICT.getReasonPhrase())
+            .message(ex.getMessage())
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+
+    return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+  }
+
   /** Handle TokenExpiredException Thrown when JWT token has expired */
   @ExceptionHandler(TokenExpiredException.class)
   public ResponseEntity<ErrorResponse> handleTokenExpired(
@@ -206,9 +242,9 @@ public class GlobalExceptionHandler {
   /** Handle FeignException Thrown when Feign client calls to Keycloak fail */
   @ExceptionHandler(FeignException.class)
   public ResponseEntity<ErrorResponse> handleFeignException(FeignException ex, WebRequest request) {
-    log.error("Keycloak API error: {} - {}", ex.status(), ex.getMessage());
+    // Sanitized (8d): log the full response body for diagnostics, return a fixed message.
+    log.error("Keycloak API error: status={}, body={}", ex.status(), safeContent(ex), ex);
 
-    String message = extractFeignErrorMessage(ex);
     HttpStatus status = HttpStatus.valueOf(ex.status());
 
     ErrorResponse errorResponse =
@@ -216,7 +252,7 @@ public class GlobalExceptionHandler {
             .timestamp(LocalDateTime.now())
             .status(status.value())
             .error(status.getReasonPhrase())
-            .message(message)
+            .message("Authentication service error")
             .path(request.getDescription(false).replace("uri=", ""))
             .build();
 
@@ -284,35 +320,14 @@ public class GlobalExceptionHandler {
   // Helper Methods
   // ============================================================================
 
-  /** Extract error message from Feign exception */
-  private String extractFeignErrorMessage(FeignException ex) {
+  /** Safely read the Feign exception response body for logging (never sent to clients). */
+  private String safeContent(FeignException ex) {
     try {
-      // Try to extract Keycloak error message from response body
       String responseBody = ex.contentUTF8();
-      if (responseBody != null && !responseBody.isEmpty()) {
-        // Parse JSON response for error_description or error fields
-        if (responseBody.contains("error_description")) {
-          int start = responseBody.indexOf("error_description") + 19;
-          int end = responseBody.indexOf("\"", start + 1);
-          return responseBody.substring(start, end);
-        } else if (responseBody.contains("errorMessage")) {
-          int start = responseBody.indexOf("errorMessage") + 15;
-          int end = responseBody.indexOf("\"", start + 1);
-          return responseBody.substring(start, end);
-        }
-      }
+      return (responseBody == null || responseBody.isEmpty()) ? "(empty)" : responseBody;
     } catch (Exception e) {
-      log.warn("Failed to extract error message from Feign exception", e);
+      log.warn("Failed to read Feign exception body", e);
+      return "(unreadable)";
     }
-
-    // Fallback messages based on status code
-    return switch (ex.status()) {
-      case 401 -> "Keycloak authentication failed";
-      case 403 -> "Keycloak authorization failed";
-      case 404 -> "Keycloak resource not found";
-      case 409 -> "Resource already exists in Keycloak";
-      case 400 -> "Invalid request to Keycloak";
-      default -> "Keycloak service error";
-    };
   }
 }

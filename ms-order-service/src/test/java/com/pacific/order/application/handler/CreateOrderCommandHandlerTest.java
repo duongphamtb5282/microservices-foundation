@@ -23,6 +23,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,9 +41,12 @@ import com.pacific.order.domain.model.OrderStatus;
 import com.pacific.order.domain.repository.OrderRepository;
 import com.pacific.order.domain.service.OrderDomainService;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
+import com.pacific.order.infrastructure.idempotency.entity.OrderIdempotencyEntity;
+import com.pacific.order.infrastructure.idempotency.repository.OrderIdempotencyJpaRepository;
 import com.pacific.order.infrastructure.outbox.service.OrderOutboxService;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.cache.CacheManager;
@@ -59,6 +63,8 @@ class CreateOrderCommandHandlerTest {
   private final EventStoreRepository eventStoreRepository = mock(EventStoreRepository.class);
   private final BusinessMetricsService businessMetricsService = mock(BusinessMetricsService.class);
   private final CacheManager cacheManager = mock(CacheManager.class);
+  private final OrderIdempotencyJpaRepository idempotencyRepository =
+      mock(OrderIdempotencyJpaRepository.class);
 
   private final CreateOrderCommandHandler handler =
       new CreateOrderCommandHandler(
@@ -67,7 +73,8 @@ class CreateOrderCommandHandlerTest {
           orderOutboxService,
           eventStoreRepository,
           businessMetricsService,
-          cacheManager);
+          cacheManager,
+          idempotencyRepository);
 
   @Test
   void successfulOrderWritesOutboxAndDoesNotPublishDirectly() {
@@ -103,6 +110,32 @@ class CreateOrderCommandHandlerTest {
     verify(orderOutboxService, never()).record(any());
   }
 
+  @Test
+  void sameIdempotencyKeyReplaysExistingOrderWithoutDuplicate() {
+    Order order = validOrder();
+    when(orderDomainService.createOrder(any(), any(), any())).thenReturn(order);
+    when(orderRepository.save(order)).thenReturn(order);
+
+    // First call: creates the order and records the key in the same tx
+    CommandResult<OrderResponse> first = handler.handle(commandWithKey("key-1"));
+    assertThat(first.isSuccess()).isTrue();
+    verify(idempotencyRepository).save(any(OrderIdempotencyEntity.class));
+
+    // Second call with the same key: replay the existing order — no second order,
+    // no second outbox row, no second key row
+    when(idempotencyRepository.findByUserIdAndIdempotencyKey("user-1", "key-1"))
+        .thenReturn(Optional.of(OrderIdempotencyEntity.of("key-1", "user-1", "order-1")));
+    when(orderRepository.findById("order-1")).thenReturn(Optional.of(validOrder()));
+
+    CommandResult<OrderResponse> replay = handler.handle(commandWithKey("key-1"));
+    assertThat(replay.isSuccess()).isTrue();
+    assertThat(replay.getData().getOrderId()).isEqualTo("order-1");
+
+    verify(orderRepository, times(1)).save(order);
+    verify(orderOutboxService, times(1)).record(any());
+    verify(idempotencyRepository, times(1)).save(any(OrderIdempotencyEntity.class));
+  }
+
   private CreateOrderCommand command() {
     return CreateOrderCommand.builder()
         .userId("user-1")
@@ -115,6 +148,22 @@ class CreateOrderCommandHandlerTest {
                     .build()))
         .initiator("tester")
         .correlationId("corr-1")
+        .build();
+  }
+
+  private CreateOrderCommand commandWithKey(String idempotencyKey) {
+    return CreateOrderCommand.builder()
+        .userId("user-1")
+        .items(
+            List.of(
+                OrderItemDto.builder()
+                    .productName("Laptop")
+                    .quantity(2)
+                    .price(BigDecimal.TEN)
+                    .build()))
+        .initiator("tester")
+        .correlationId("corr-1")
+        .idempotencyKey(idempotencyKey)
         .build();
   }
 

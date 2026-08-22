@@ -1,13 +1,16 @@
 package com.pacific.core.cache.multitier;
 
+import com.pacific.core.cache.CacheAccessException;
 import java.util.concurrent.Callable;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.Cache;
 
 /**
  * Multi-tier cache implementation that combines L1 (Caffeine) and L2 (Redis) caches. Implements a
  * write-through strategy where writes go to both caches.
  */
+@Slf4j
 public class MultiTierCache implements Cache {
 
   private final String name;
@@ -87,7 +90,8 @@ public class MultiTierCache implements Cache {
       try {
         return l1Cache.get(key, valueLoader);
       } catch (Exception e) {
-        // If L1 fails, try L2
+        // L1 failure -> fall back to L2, deliberate (6d)
+        log.debug("L1 cache lookup failed for key: {}", key, e);
       }
     }
 
@@ -101,11 +105,11 @@ public class MultiTierCache implements Cache {
         return value;
       } catch (Exception e) {
         // If both fail, throw the exception
-        throw new RuntimeException("Failed to load value from cache", e);
+        throw new CacheAccessException("Failed to load value from cache", e);
       }
     }
 
-    throw new RuntimeException("No cache available");
+    throw new CacheAccessException("No cache available");
   }
 
   @Override

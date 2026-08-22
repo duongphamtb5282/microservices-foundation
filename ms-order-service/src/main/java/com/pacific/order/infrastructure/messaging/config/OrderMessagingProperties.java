@@ -12,4 +12,5 @@ public class OrderMessagingProperties {
 
   private String orderEventsTopic = "order.events";
   private String orderCommandsTopic = "order.commands";
+  private String paymentEventsTopic = "payment.events";
 }

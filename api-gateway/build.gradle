@@ -52,9 +52,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     
-    // Service Discovery (optional)
-    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client:4.1.5'
-    
+    // JWT Validation (local RS256 verification against Keycloak JWKS, F-35)
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
     // Circuit Breaker
     implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j:3.1.0'
     

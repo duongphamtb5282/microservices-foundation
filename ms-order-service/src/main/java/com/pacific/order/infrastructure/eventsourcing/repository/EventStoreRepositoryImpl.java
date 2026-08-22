@@ -4,12 +4,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pacific.order.domain.event.OrderDomainEvent;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
 import com.pacific.order.infrastructure.eventsourcing.entity.OrderEventEntity;
+import com.pacific.order.infrastructure.exception.EventStoreException;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -45,7 +45,7 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
 
     } catch (Exception e) {
       log.error("Failed to save event: {}", event.getEventType(), e);
-      throw new RuntimeException("Failed to save event", e);
+      throw new EventStoreException("Failed to save event", e);
     }
   }
 
@@ -53,10 +53,10 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
   public List<OrderDomainEvent> getEventsForAggregate(String aggregateId) {
     try {
       List<OrderEventEntity> entities = jpaRepository.findByOrderIdOrderByVersionAsc(aggregateId);
-      return entities.stream().map(this::convertToDomainEvent).collect(Collectors.toList());
+      return entities.stream().map(this::convertToDomainEvent).toList();
     } catch (Exception e) {
       log.error("Failed to get events for aggregate: {}", aggregateId, e);
-      throw new RuntimeException("Failed to get events for aggregate", e);
+      throw new EventStoreException("Failed to get events for aggregate", e);
     }
   }
 
@@ -66,11 +66,11 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
     try {
       List<OrderEventEntity> entities =
           jpaRepository.findByOrderIdFromVersionOrderByVersionAsc(aggregateId, fromVersion);
-      return entities.stream().map(this::convertToDomainEvent).collect(Collectors.toList());
+      return entities.stream().map(this::convertToDomainEvent).toList();
     } catch (Exception e) {
       log.error(
           "Failed to get events for aggregate: {} from version: {}", aggregateId, fromVersion, e);
-      throw new RuntimeException("Failed to get events for aggregate from version", e);
+      throw new EventStoreException("Failed to get events for aggregate from version", e);
     }
   }
 
@@ -80,8 +80,9 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
       Integer version = jpaRepository.findMaxVersionByOrderId(aggregateId);
       return Optional.ofNullable(version);
     } catch (Exception e) {
+      // Do not mask a DB failure as "no version" (would replay from scratch) — fail loudly
       log.error("Failed to get latest version for aggregate: {}", aggregateId, e);
-      return Optional.empty();
+      throw new EventStoreException("Failed to get latest version for aggregate", e);
     }
   }
 
@@ -95,10 +96,10 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
     try {
       List<OrderEventEntity> entities =
           jpaRepository.findByCorrelationIdOrderByEventTimestampAsc(correlationId);
-      return entities.stream().map(this::convertToDomainEvent).collect(Collectors.toList());
+      return entities.stream().map(this::convertToDomainEvent).toList();
     } catch (Exception e) {
       log.error("Failed to get events for correlation ID: {}", correlationId, e);
-      return List.of();
+      throw new EventStoreException("Failed to get events for correlation ID", e);
     }
   }
 
@@ -107,10 +108,10 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
     try {
       List<OrderEventEntity> entities =
           jpaRepository.findByUserIdAndEventTypeOrderByEventTimestampDesc(userId, eventType);
-      return entities.stream().map(this::convertToDomainEvent).collect(Collectors.toList());
+      return entities.stream().map(this::convertToDomainEvent).toList();
     } catch (Exception e) {
       log.error("Failed to get events for user: {} and type: {}", userId, eventType, e);
-      return List.of();
+      throw new EventStoreException("Failed to get events for user and type", e);
     }
   }
 
@@ -123,10 +124,10 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
 
       List<OrderEventEntity> entities =
           jpaRepository.findByEventTimestampBetweenOrderByEventTimestampAsc(start, end);
-      return entities.stream().map(this::convertToDomainEvent).collect(Collectors.toList());
+      return entities.stream().map(this::convertToDomainEvent).toList();
     } catch (Exception e) {
       log.error("Failed to get events in time range: {} to {}", startTime, endTime, e);
-      return List.of();
+      throw new EventStoreException("Failed to get events in time range", e);
     }
   }
 
@@ -139,7 +140,7 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
       return (OrderDomainEvent) objectMapper.readValue(entity.getEventData(), eventClass);
     } catch (Exception e) {
       log.error("Failed to convert entity to domain event: {}", entity.getEventType(), e);
-      throw new RuntimeException("Failed to convert entity to domain event", e);
+      throw new EventStoreException("Failed to convert entity to domain event", e);
     }
   }
 

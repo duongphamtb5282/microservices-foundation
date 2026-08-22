@@ -17,6 +17,12 @@ public class CreateOrderCommand implements Command<OrderResponse> {
   String initiator;
   String correlationId;
 
+  /**
+   * Client-supplied idempotency key (Idempotency-Key header) — optional, see
+   * idempotency-proposal.md
+   */
+  String idempotencyKey;
+
   public String getInitiator() {
     return initiator;
   }

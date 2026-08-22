@@ -66,8 +66,9 @@ public class KafkaWrapperHealthIndicator implements HealthIndicator {
       return builder.build();
 
     } catch (Exception e) {
-      log.error("Health check failed", e);
-      return Health.down().withDetail("error", e.getMessage()).withException(e).build();
+      log.error("Kafka health check failed", e);
+      // Fixed message: do not leak internal exception text into actuator health details (6e)
+      return Health.down().withDetail("error", "Down: Kafka cluster").build();
     }
   }
 

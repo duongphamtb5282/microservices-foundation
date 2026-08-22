@@ -2,7 +2,6 @@ package com.pacific.customer.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.security.config.annotation.method.configuration.EnableReactiveMethodSecurity;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -10,12 +9,16 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 
 /**
  * Security configuration for ms-customer service. Configures OAuth2 resource server with selective
- * endpoint access for development.
+ * endpoint access (Swagger UI and actuator are public; everything else requires a valid JWT).
+ *
+ * <p>Active in ALL environments (S-01): previously restricted to {@code dev}/{@code staging}, which
+ * left production without any authentication enforcement. The JWT issuer/jwk-set URI is resolved
+ * from {@code spring.security.oauth2.resourceserver.jwt.*} properties per profile (see
+ * application-{dev,stg,prod}.yml), so no environment-specific values are hardcoded here.
  */
 @Configuration
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
-@Profile({"dev", "staging"}) // Only apply in development/staging
 public class SecurityConfig {
 
   @Bean

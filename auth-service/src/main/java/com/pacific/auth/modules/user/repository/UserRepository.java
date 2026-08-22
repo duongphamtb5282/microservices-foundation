@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -27,9 +28,16 @@ public interface UserRepository extends JpaRepository<User, UUID> {
   long countByIsActiveFalse();
 
   // Search methods with pagination
+  // Roles are fetched eagerly (F-17) to avoid N+1 when mapping rows to DTOs.
+  @Override
+  @EntityGraph(attributePaths = "roles")
+  Page<User> findAll(Pageable pageable);
+
+  @EntityGraph(attributePaths = "roles")
   Page<User> findByUserNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
       String userName, String email, Pageable pageable);
 
+  @EntityGraph(attributePaths = "roles")
   Page<User> findByRolesName(String roleName, Pageable pageable);
 
   // Advanced query methods

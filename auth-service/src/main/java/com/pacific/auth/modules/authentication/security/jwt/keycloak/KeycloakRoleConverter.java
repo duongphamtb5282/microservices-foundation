@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -53,20 +52,20 @@ public class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedA
   }
 
   /** Extract realm roles from JWT claims */
-  private Collection<GrantedAuthority> extractRealmRoles(Jwt jwt) {
+  private List<GrantedAuthority> extractRealmRoles(Jwt jwt) {
     Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
     if (realmAccess != null && realmAccess.containsKey("roles")) {
       @SuppressWarnings("unchecked")
       List<String> realmRoles = (List<String>) realmAccess.get("roles");
       return realmRoles.stream()
-          .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-          .collect(Collectors.toList());
+          .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+          .toList();
     }
     return new ArrayList<>();
   }
 
   /** Extract client-specific roles from JWT claims */
-  private Collection<GrantedAuthority> extractClientRoles(Jwt jwt) {
+  private List<GrantedAuthority> extractClientRoles(Jwt jwt) {
     Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
     if (resourceAccess != null && keycloakProperties.getResource() != null) {
       @SuppressWarnings("unchecked")
@@ -76,8 +75,8 @@ public class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedA
         @SuppressWarnings("unchecked")
         List<String> clientRoleList = (List<String>) clientRoles.get("roles");
         return clientRoleList.stream()
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-            .collect(Collectors.toList());
+            .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+            .toList();
       }
     }
     return new ArrayList<>();

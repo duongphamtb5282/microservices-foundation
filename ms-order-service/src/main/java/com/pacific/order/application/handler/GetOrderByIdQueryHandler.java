@@ -43,8 +43,9 @@ public class GetOrderByIdQueryHandler implements QueryHandler<GetOrderByIdQuery,
       return QueryResult.of(response);
 
     } catch (Exception e) {
-      log.error("Failed to get order by ID", e);
-      return QueryResult.of(null);
+      // Do not mask a DB failure as "order not found" — rethrow; the query bus surfaces it as a 500
+      log.error("Failed to get order by ID: {}", query.getOrderId(), e);
+      throw e;
     }
   }
 }

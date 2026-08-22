@@ -7,6 +7,7 @@ import com.nimbusds.jose.proc.JWSKeySelector;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import com.pacific.auth.common.exception.JwtConfigurationException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import lombok.RequiredArgsConstructor;
@@ -97,7 +98,7 @@ public class KeycloakJwtConfig {
 
     } catch (MalformedURLException e) {
       log.error("Invalid Keycloak URL configuration", e);
-      throw new RuntimeException("Failed to configure Keycloak JWT decoder", e);
+      throw new JwtConfigurationException("Failed to configure Keycloak JWT decoder", e);
     }
   }
 }

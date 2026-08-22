@@ -19,6 +19,7 @@ package com.pacific.order.infrastructure.outbox.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -62,7 +63,8 @@ class OrderOutboxRelayTest {
   void publishesPendingEventAndMarksPublished() throws Exception {
     OrderCreatedEvent event = orderCreatedEvent();
     OrderOutboxEntity row = OrderOutboxEntity.from(event, objectMapper.writeValueAsString(event));
-    when(repository.findByStatusOrderByCreatedAtAsc(OrderOutboxStatus.PENDING, any(Pageable.class)))
+    when(repository.findByStatusOrderByCreatedAtAsc(
+            eq(OrderOutboxStatus.PENDING), any(Pageable.class)))
         .thenReturn(List.of(row));
     CompletableFuture<SendResult<String, OrderCreatedEvent>> future = new CompletableFuture<>();
     future.complete(mock(SendResult.class));
@@ -79,7 +81,8 @@ class OrderOutboxRelayTest {
   void failedSendRetriesThenMarksFailed() throws Exception {
     OrderCreatedEvent event = orderCreatedEvent();
     OrderOutboxEntity row = OrderOutboxEntity.from(event, objectMapper.writeValueAsString(event));
-    when(repository.findByStatusOrderByCreatedAtAsc(OrderOutboxStatus.PENDING, any(Pageable.class)))
+    when(repository.findByStatusOrderByCreatedAtAsc(
+            eq(OrderOutboxStatus.PENDING), any(Pageable.class)))
         .thenReturn(List.of(row));
     CompletableFuture<SendResult<String, OrderCreatedEvent>> future = new CompletableFuture<>();
     future.completeExceptionally(new RuntimeException("kafka down"));

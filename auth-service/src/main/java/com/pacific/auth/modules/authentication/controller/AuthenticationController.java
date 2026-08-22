@@ -76,67 +76,64 @@ public class AuthenticationController {
   @GetMapping("/me")
   public ResponseEntity<Map<String, Object>> getCurrentUserInfo(Authentication authentication) {
     try {
-      log.debug("Retrieved user info fordfdsfdfdsfdsf");
-      //            if (authentication instanceof JwtAuthenticationToken jwtToken) {
-      //                String token = jwtToken.getJwtToken();
-      //                log.info("Retrieved user info for1");
-      //                // For Keycloak tokens, use OAuth2TokenValidationService
-      //                if (jwtToken.isKeycloakJwtToken()) {
-      //                    if (tokenValidationService == null) {
-      //                        return ResponseEntity.status(503).body(Map.of("error", "Keycloak
-      // authentication not available"));
-      //                    }
-      //                    log.info("Retrieved user info for2");
-      //                    JwtValidationResult validation =
-      // tokenValidationService.validateToken(token);
-      //
-      //                    if (validation.isValid()) {
-      //                        Map<String, Object> userInfo = new HashMap<>();
-      //                        userInfo.put("username", validation.getUsername());
-      //                        userInfo.put("email", validation.getEmail());
-      //                        userInfo.put("firstName", validation.getFirstName());
-      //                        userInfo.put("lastName", validation.getLastName());
-      //                        userInfo.put("roles", validation.getRoles());
-      //                        userInfo.put("issuer", validation.getIssuer());
-      //                        userInfo.put("issuedAt", validation.getIssuedAt());
-      //                        userInfo.put("expiresAt", validation.getExpiresAt());
-      //                        userInfo.put("tokenType", jwtToken.getTokenType());
-      //
-      //                        log.info("Retrieved user info for: {} (Token type: {})",
-      // validation.getUsername(), jwtToken.getTokenType());
-      //                        return ResponseEntity.ok(userInfo);
-      //                    } else {
-      //                        log.warn("Invalid Keycloak token for user info request");
-      //                        return ResponseEntity.status(401).body(Map.of("error",
-      // validation.getErrorMessage()));
-      //                    }
-      //                } else {
-      //                    log.info("kkkkkkk");
-      //                    // For custom JWT tokens, extract info directly from authentication
-      //                    Map<String, Object> userInfo = new HashMap<>();
-      //                    userInfo.put("username", authentication.getName());
-      //                    userInfo.put("authorities", authentication.getAuthorities().stream()
-      //                            .map(auth -> auth.getAuthority())
-      //                            .toList());
-      //                    userInfo.put("tokenType", jwtToken.getTokenType());
-      //                    userInfo.put("isCustomJwt", true);
-      //                    userInfo.put("isKeycloakJwt", false);
-      //
-      //                    log.info("Retrieved user info for: {} (Token type: {})",
-      // authentication.getName(), jwtToken.getTokenType());
-      //                    return ResponseEntity.ok(userInfo);
-      //                }
-      //            } else {
-      //                log.warn("Invalid authentication type for user info request: {}",
-      // authentication.getClass().getSimpleName());
-      //                return ResponseEntity.status(401).body(Map.of("error", "Invalid
-      // authentication"));
-      //            }
+      if (!(authentication instanceof JwtAuthenticationToken jwtToken)) {
+        log.warn(
+            "Invalid authentication type for user info request: {}",
+            authentication == null ? "null" : authentication.getClass().getSimpleName());
+        return ResponseEntity.status(401).body(Map.of("error", "Invalid authentication"));
+      }
+
+      String token = jwtToken.getJwtToken();
+
+      // For Keycloak tokens, re-validate the token and return the token claims
+      if (jwtToken.isKeycloakJwtToken()) {
+        if (tokenValidationService == null) {
+          return ResponseEntity.status(503)
+              .body(Map.of("error", "Keycloak authentication not available"));
+        }
+        JwtValidationResult validation = tokenValidationService.validateToken(token);
+        if (!validation.isValid()) {
+          log.warn("Invalid Keycloak token for user info request");
+          return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired token"));
+        }
+
+        Map<String, Object> userInfo = new HashMap<>();
+        userInfo.put("username", validation.getUsername());
+        userInfo.put("email", validation.getEmail());
+        userInfo.put("firstName", validation.getFirstName());
+        userInfo.put("lastName", validation.getLastName());
+        userInfo.put("roles", validation.getRoles());
+        userInfo.put("issuer", validation.getIssuer());
+        userInfo.put("issuedAt", validation.getIssuedAt());
+        userInfo.put("expiresAt", validation.getExpiresAt());
+        userInfo.put("tokenType", jwtToken.getTokenType());
+
+        log.info(
+            "Retrieved user info for: {} (Token type: {})",
+            validation.getUsername(),
+            jwtToken.getTokenType());
+        return ResponseEntity.ok(userInfo);
+      }
+
+      // For custom JWT tokens, extract info directly from authentication
+      Map<String, Object> userInfo = new HashMap<>();
+      userInfo.put("username", authentication.getName());
+      userInfo.put(
+          "authorities",
+          authentication.getAuthorities().stream().map(auth -> auth.getAuthority()).toList());
+      userInfo.put("tokenType", jwtToken.getTokenType());
+      userInfo.put("isCustomJwt", true);
+      userInfo.put("isKeycloakJwt", false);
+
+      log.info(
+          "Retrieved user info for: {} (Token type: {})",
+          authentication.getName(),
+          jwtToken.getTokenType());
+      return ResponseEntity.ok(userInfo);
     } catch (Exception e) {
       log.error("Error retrieving user info", e);
       return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
     }
-    return null;
   }
 
   /** Validate a token and return its information */

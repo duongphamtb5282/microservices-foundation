@@ -3,6 +3,7 @@ package com.pacific.order.infrastructure.outbox.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pacific.order.domain.event.OrderCreatedEvent;
+import com.pacific.order.infrastructure.exception.OutboxSerializationException;
 import com.pacific.order.infrastructure.outbox.entity.OrderOutboxEntity;
 import com.pacific.order.infrastructure.outbox.repository.OrderOutboxJpaRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class OrderOutboxService {
       outboxRepository.save(OrderOutboxEntity.from(event, payload));
       log.debug("Recorded outbox entry for event: {}", event.getOrderId());
     } catch (JsonProcessingException e) {
-      throw new IllegalStateException("Failed to serialize outbox event", e);
+      throw new OutboxSerializationException("Failed to serialize outbox event", e);
     }
   }
 }

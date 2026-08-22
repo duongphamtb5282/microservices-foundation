@@ -1,6 +1,7 @@
 package com.pacific.order.infrastructure.security;
 
 import com.pacific.core.messaging.security.SecurityService;
+import com.pacific.order.infrastructure.exception.DataEncryptionException;
 import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import lombok.extern.slf4j.Slf4j;
@@ -29,9 +30,10 @@ public class EncryptedString implements AttributeConverter<String, String> {
       log.trace("Encrypted data for database storage");
       return encrypted;
     } catch (Exception e) {
+      // Never persist plaintext as a silent fallback — fail loudly (survey finding: encryption
+      // failure previously stored the plaintext in the DB)
       log.error("Failed to encrypt data for database", e);
-      // In production, you might want to throw an exception instead
-      return attribute;
+      throw new DataEncryptionException("Failed to encrypt data for database", e);
     }
   }
 
@@ -46,9 +48,9 @@ public class EncryptedString implements AttributeConverter<String, String> {
       log.trace("Decrypted data from database");
       return decrypted;
     } catch (Exception e) {
+      // Never surface raw ciphertext as if it were plaintext — fail loudly
       log.error("Failed to decrypt data from database", e);
-      // In production, you might want to throw an exception instead
-      return dbData;
+      throw new DataEncryptionException("Failed to decrypt data from database", e);
     }
   }
 }

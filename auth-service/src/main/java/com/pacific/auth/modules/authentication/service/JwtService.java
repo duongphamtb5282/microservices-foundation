@@ -58,9 +58,7 @@ public class JwtService {
     // Add user roles/authorities to the JWT token
     if (userDetails != null && userDetails.getAuthorities() != null) {
       List<String> roles =
-          userDetails.getAuthorities().stream()
-              .map(authority -> authority.getAuthority())
-              .collect(java.util.stream.Collectors.toList());
+          userDetails.getAuthorities().stream().map(authority -> authority.getAuthority()).toList();
       claims.put("roles", roles);
       log.info("🔐 Adding roles to JWT token: {}", roles);
     }

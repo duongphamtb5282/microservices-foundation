@@ -18,54 +18,35 @@ public class KeycloakErrorDecoder implements ErrorDecoder {
   @Override
   public Exception decode(String methodKey, Response response) {
     HttpStatus status = HttpStatus.valueOf(response.status());
-    String message = extractErrorMessage(response);
+    String body = readResponseBody(response);
 
-    log.error("Keycloak API error: {} - {} for {}", status, message, methodKey);
+    // Sanitized (8d): the raw Keycloak body is logged for diagnostics but never propagated
+    // to clients; exceptions carry only a generic message with the HTTP status.
+    log.error("Keycloak API error: {} for {}, response body: {}", status, methodKey, body);
 
     // Map Keycloak errors to appropriate exceptions
     return switch (status) {
       case UNAUTHORIZED ->
-          new ResponseStatusException(
-              HttpStatus.UNAUTHORIZED, "Keycloak authentication failed: " + message);
+          new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Keycloak request failed");
       case FORBIDDEN ->
-          new ResponseStatusException(
-              HttpStatus.FORBIDDEN, "Keycloak authorization failed: " + message);
+          new ResponseStatusException(HttpStatus.FORBIDDEN, "Keycloak request failed");
       case NOT_FOUND ->
-          new ResponseStatusException(
-              HttpStatus.NOT_FOUND, "Keycloak resource not found: " + message);
-      case CONFLICT ->
-          new ResponseStatusException(
-              HttpStatus.CONFLICT, "Resource already exists in Keycloak: " + message);
+          new ResponseStatusException(HttpStatus.NOT_FOUND, "Keycloak request failed");
+      case CONFLICT -> new ResponseStatusException(HttpStatus.CONFLICT, "Keycloak request failed");
       case BAD_REQUEST ->
-          new ResponseStatusException(
-              HttpStatus.BAD_REQUEST, "Invalid request to Keycloak: " + message);
+          new ResponseStatusException(HttpStatus.BAD_REQUEST, "Keycloak request failed");
       default -> defaultErrorDecoder.decode(methodKey, response);
     };
   }
 
-  /** Extract error message from response body */
-  private String extractErrorMessage(Response response) {
+  /** Read the raw response body (for logging only; not propagated to clients). */
+  private String readResponseBody(Response response) {
     try {
       if (response.body() != null) {
-        String body = new String(response.body().asInputStream().readAllBytes());
-        // Try to parse JSON error response
-        if (body.contains("error_description")) {
-          int start = body.indexOf("error_description") + 19;
-          int end = body.indexOf("\"", start + 1);
-          if (end > start) {
-            return body.substring(start, end);
-          }
-        } else if (body.contains("errorMessage")) {
-          int start = body.indexOf("errorMessage") + 15;
-          int end = body.indexOf("\"", start + 1);
-          if (end > start) {
-            return body.substring(start, end);
-          }
-        }
-        return body.substring(0, Math.min(body.length(), 200));
+        return new String(response.body().asInputStream().readAllBytes());
       }
     } catch (Exception e) {
-      log.warn("Failed to extract error message from Keycloak response", e);
+      log.warn("Failed to read Keycloak response body", e);
     }
     return "Unknown error";
   }

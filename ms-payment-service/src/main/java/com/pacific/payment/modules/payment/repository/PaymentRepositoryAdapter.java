@@ -2,9 +2,7 @@ package com.pacific.payment.modules.payment.repository;
 
 import com.pacific.payment.modules.payment.domain.Payment;
 import com.pacific.payment.modules.payment.entity.PaymentEntity;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,20 +31,8 @@ public class PaymentRepositoryAdapter implements PaymentRepository {
   }
 
   @Override
-  public List<Payment> findByUserId(String userId) {
-    return jpaRepository.findByUserId(userId).stream()
-        .map(this::toDomain)
-        .collect(Collectors.toList());
-  }
-
-  @Override
   public boolean existsByOrderId(String orderId) {
     return jpaRepository.existsByOrderId(orderId);
-  }
-
-  @Override
-  public List<Payment> findAll() {
-    return jpaRepository.findAll().stream().map(this::toDomain).collect(Collectors.toList());
   }
 
   /** Convert domain Payment to PaymentEntity */

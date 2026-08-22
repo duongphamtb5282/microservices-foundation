@@ -10,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -79,13 +78,14 @@ public class UserService {
 
   /** Get all users with pagination and caching */
   public Map<String, Object> getAllUsers(int page, int size) {
+    page = sanitizePage(page);
+    size = sanitizeSize(size);
     log.info("🔍 Fetching all users from database - page: {}, size: {}", page, size);
 
     Pageable pageable = PageRequest.of(page, size);
     Page<User> userPage = userRepository.findAll(pageable);
 
-    List<UserInfoDto> users =
-        userPage.getContent().stream().map(this::mapToUserInfoDto).collect(Collectors.toList());
+    List<UserInfoDto> users = userPage.getContent().stream().map(this::mapToUserInfoDto).toList();
 
     Map<String, Object> result = new HashMap<>();
     result.put("users", users);
@@ -102,6 +102,8 @@ public class UserService {
   /** Search users with caching */
   @Cacheable(value = "user-search", key = "#query + '-' + #page + '-' + #size")
   public Map<String, Object> searchUsers(String query, int page, int size) {
+    page = sanitizePage(page);
+    size = sanitizeSize(size);
     log.info(
         "🔍 Searching users in database with query: '{}', page: {}, size: {}", query, page, size);
 
@@ -110,8 +112,7 @@ public class UserService {
         userRepository.findByUserNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
             query, query, pageable);
 
-    List<UserInfoDto> users =
-        userPage.getContent().stream().map(this::mapToUserInfoDto).collect(Collectors.toList());
+    List<UserInfoDto> users = userPage.getContent().stream().map(this::mapToUserInfoDto).toList();
 
     Map<String, Object> result = new HashMap<>();
     result.put("users", users);
@@ -127,7 +128,7 @@ public class UserService {
   }
 
   /** Update user with cache invalidation */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   @CachePut(value = "user-by-id", key = "#userId")
   @CacheEvict(
       value = {"user-info", "user-by-username", "all-users", "user-search"},
@@ -162,7 +163,7 @@ public class UserService {
   }
 
   /** Delete user with cache invalidation */
-  @Transactional
+  @Transactional(rollbackFor = Exception.class)
   @CacheEvict(
       value = {
         "user-info",
@@ -178,7 +179,7 @@ public class UserService {
 
     UUID userUuid = UUID.fromString(userId);
     if (!userRepository.existsById(userUuid)) {
-      throw new RuntimeException("User not found: " + userId);
+      throw UserNotFoundException.forId(userId);
     }
 
     userRepository.deleteById(userUuid);
@@ -196,8 +197,7 @@ public class UserService {
             .findById(userUuid)
             .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-    List<String> roles =
-        user.getRoles().stream().map(role -> role.getName().name()).collect(Collectors.toList());
+    List<String> roles = user.getRoles().stream().map(role -> role.getName().name()).toList();
 
     Map<String, Object> result = new HashMap<>();
     result.put("userId", userId);
@@ -229,14 +229,15 @@ public class UserService {
   /** Get users by role with caching */
   @Cacheable(value = "users-by-role", key = "#roleName + '-' + #page + '-' + #size")
   public Map<String, Object> getUsersByRole(String roleName, int page, int size) {
+    page = sanitizePage(page);
+    size = sanitizeSize(size);
     log.info(
         "🔍 Fetching users by role from database: {}, page: {}, size: {}", roleName, page, size);
 
     Pageable pageable = PageRequest.of(page, size);
     Page<User> userPage = userRepository.findByRolesName(roleName, pageable);
 
-    List<UserInfoDto> users =
-        userPage.getContent().stream().map(this::mapToUserInfoDto).collect(Collectors.toList());
+    List<UserInfoDto> users = userPage.getContent().stream().map(this::mapToUserInfoDto).toList();
 
     Map<String, Object> result = new HashMap<>();
     result.put("users", users);
@@ -264,11 +265,21 @@ public class UserService {
         .isActive(user.getIsActive())
         .createdAt(convertToInstant(user.getCreatedAt()))
         .modifiedAt(convertToInstant(user.getModifiedAt()))
-        .roles(
-            user.getRoles().stream()
-                .map(role -> role.getName().name())
-                .collect(Collectors.toList()))
+        .roles(user.getRoles().stream().map(role -> role.getName().name()).toList())
         .build();
+  }
+
+  /** Clamp page number to a non-negative value (F-20). */
+  private int sanitizePage(int page) {
+    return Math.max(page, 0);
+  }
+
+  /** Clamp page size to [1..100], defaulting to 20 for invalid values (F-20). */
+  private int sanitizeSize(int size) {
+    if (size <= 0) {
+      return 20;
+    }
+    return Math.min(size, 100);
   }
 
   /** Clear all user-related caches */

@@ -112,7 +112,11 @@ public class ProvidersSecurityConfiguration {
       http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
       log.info("✅ JWT authentication filter added with authentication manager");
     } catch (Exception e) {
-      log.warn("⚠️ JWT authentication filter not available, using basic authentication only");
+      // Missing JWT filter silently degrades to basic-auth only — fail loud so a
+      // misconfiguration is visible instead of exposing endpoints with weaker auth.
+      log.error(
+          "JWT authentication filter bean unavailable; falling back to basic authentication only",
+          e);
     }
 
     // Configure authorization

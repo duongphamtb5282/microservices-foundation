@@ -1,5 +1,7 @@
 package com.pacific.shared.utils;
 
+import com.pacific.shared.exceptions.JsonProcessingRuntimeException;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -18,7 +20,8 @@ public class JsonUtils {
       return objectMapper.writeValueAsString(object);
     } catch (JsonProcessingException e) {
       log.error("Error serializing object to JSON", e);
-      return "{}";
+      // Fail loudly instead of silently returning "{}" (9)
+      throw new JsonProcessingRuntimeException("Failed to serialize object to JSON", e);
     }
   }
 
@@ -27,7 +30,9 @@ public class JsonUtils {
       return objectMapper.readValue(json, clazz);
     } catch (JsonProcessingException e) {
       log.error("Error deserializing JSON to object", e);
-      return null;
+      // Fail loudly instead of silently returning null (9)
+      throw new JsonProcessingRuntimeException(
+          "Failed to deserialize JSON to object of type " + clazz.getName(), e);
     }
   }
 

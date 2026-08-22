@@ -47,8 +47,9 @@ public class ServiceClient {
         return ApiResponse.error("Request failed with status: " + response.getStatusCode());
       }
     } catch (Exception e) {
-      log.error("Error making GET request to {}: {}", serviceUrl + endpoint, e.getMessage());
-      return ApiResponse.error("Service communication failed: " + e.getMessage());
+      log.error("Error making GET request to {}", serviceUrl + endpoint, e);
+      // Fixed message: do not leak internal exception text (URLs, etc.) to callers (8)
+      return ApiResponse.error("Service communication failed");
     }
   }
 
@@ -75,8 +76,9 @@ public class ServiceClient {
         return ApiResponse.error("Request failed with status: " + response.getStatusCode());
       }
     } catch (Exception e) {
-      log.error("Error making POST request to {}: {}", serviceUrl + endpoint, e.getMessage());
-      return ApiResponse.error("Service communication failed: " + e.getMessage());
+      log.error("Error making POST request to {}", serviceUrl + endpoint, e);
+      // Fixed message: do not leak internal exception text (URLs, etc.) to callers (8)
+      return ApiResponse.error("Service communication failed");
     }
   }
 

@@ -90,7 +90,10 @@ dependencies {
 
     // Custom MongoDB migrations using Spring Boot
 
-    // Reactive Redis (for caching)
+    // Reactive Redis - KEPT (F-22): ms-customer itself has no @Cacheable/@EnableCaching usage, but
+    // backend-core's CacheConfig (imported via BackendCoreAutoConfiguration) constructor-injects
+    // RedisConnectionFactory and builds RedisCacheManager/RedisTemplate, so removing this starter
+    // would break context startup.
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 
     // Reactive Kafka

@@ -178,7 +178,12 @@ public class CorrelationAwareConsumer {
             log.debug("Async processing completed. Correlation ID: {}", correlationId);
 
           } catch (Exception e) {
-            log.error("Async processing failed. Correlation ID: {}", correlationId, e);
+            // Async processing failures must be visible: log at error level with full context (6f)
+            log.error(
+                "Async processing failed. Topic: {}, Correlation ID: {}",
+                record.topic(),
+                correlationId,
+                e);
             // Could trigger specific async error handling
           } finally {
             // Clean up MDC in child thread

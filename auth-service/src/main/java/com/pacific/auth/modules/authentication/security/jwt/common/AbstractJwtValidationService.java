@@ -1,5 +1,6 @@
 package com.pacific.auth.modules.authentication.security.jwt.common;
 
+import com.pacific.auth.common.exception.InvalidTokenException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -34,14 +35,14 @@ public abstract class AbstractJwtValidationService {
    *
    * @param token the JWT token
    * @return username
-   * @throws IllegalArgumentException if token is invalid
+   * @throws InvalidTokenException if token is invalid
    */
   public String extractUsername(String token) {
     JwtValidationResult result = validateToken(token);
     if (result.isValid()) {
       return result.getUsername();
     }
-    throw new IllegalArgumentException("Invalid token: " + result.getErrorMessage());
+    throw new InvalidTokenException("Invalid token: " + result.getErrorMessage());
   }
 
   /**
@@ -49,14 +50,14 @@ public abstract class AbstractJwtValidationService {
    *
    * @param token the JWT token
    * @return Map of user details
-   * @throws IllegalArgumentException if token is invalid
+   * @throws InvalidTokenException if token is invalid
    */
   public Map<String, Object> extractUserDetails(String token) {
     JwtValidationResult result = validateToken(token);
     if (result.isValid()) {
       return result.getClaims();
     }
-    throw new IllegalArgumentException("Invalid token: " + result.getErrorMessage());
+    throw new InvalidTokenException("Invalid token: " + result.getErrorMessage());
   }
 
   /**
@@ -64,14 +65,14 @@ public abstract class AbstractJwtValidationService {
    *
    * @param token the JWT token
    * @return List of roles
-   * @throws IllegalArgumentException if token is invalid
+   * @throws InvalidTokenException if token is invalid
    */
   public List<String> extractRoles(String token) {
     JwtValidationResult result = validateToken(token);
     if (result.isValid()) {
       return result.getRoles();
     }
-    throw new IllegalArgumentException("Invalid token: " + result.getErrorMessage());
+    throw new InvalidTokenException("Invalid token: " + result.getErrorMessage());
   }
 
   /**

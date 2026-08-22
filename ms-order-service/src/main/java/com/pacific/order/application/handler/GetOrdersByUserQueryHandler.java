@@ -8,7 +8,6 @@ import com.pacific.order.application.query.GetOrdersByUserQuery;
 import com.pacific.order.domain.model.Order;
 import com.pacific.order.domain.repository.OrderRepository;
 import java.util.List;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,15 +30,15 @@ public class GetOrdersByUserQueryHandler
 
       List<Order> orders = orderRepository.findByUserId(query.getUserId());
 
-      List<OrderResponse> responses =
-          orders.stream().map(OrderMapper::toResponse).collect(Collectors.toList());
+      List<OrderResponse> responses = orders.stream().map(OrderMapper::toResponse).toList();
 
       log.debug("Found {} orders for user: {} (cached)", responses.size(), query.getUserId());
       return QueryResult.of(responses);
 
     } catch (Exception e) {
-      log.error("Failed to get orders by user", e);
-      return QueryResult.of(null);
+      // Do not mask a DB failure as "no orders" — rethrow; the query bus surfaces it as a 500
+      log.error("Failed to get orders by user: {}", query.getUserId(), e);
+      throw e;
     }
   }
 }

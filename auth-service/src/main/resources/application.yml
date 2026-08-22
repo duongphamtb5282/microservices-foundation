@@ -5,6 +5,9 @@
 spring:
   application:
     name: auth-service
+  threads:
+    virtual:
+      enabled: true # F-32: virtual threads — thread-per-request without a 200-thread platform pool
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:

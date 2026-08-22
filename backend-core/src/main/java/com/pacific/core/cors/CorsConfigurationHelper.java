@@ -2,6 +2,7 @@ package com.pacific.core.cors;
 
 import java.io.IOException;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,24 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class CorsConfigurationHelper {
 
   private final CorsProperties corsProperties;
+
+  /** Validate CORS configuration at startup (S-03). */
+  @PostConstruct
+  public void validateConfiguration() {
+    if (corsProperties.isAllowCredentials()
+        && corsProperties.getAllowedOriginsList().contains("*")) {
+      log.warn(
+          "CORS: allowCredentials=true combined with allowedOrigins '*' is invalid; browsers "
+              + "reject credentials with wildcard origins. Set security.cors.allowed-origins "
+              + "explicitly (S-03).");
+    }
+    if (corsProperties.getAllowedOrigins() == null
+        || corsProperties.getAllowedOrigins().isBlank()) {
+      log.warn(
+          "CORS: no allowed origins configured; cross-origin requests will be blocked. Set "
+              + "security.cors.allowed-origins explicitly (S-03).");
+    }
+  }
 
   /** Create Spring Security CORS configuration source */
   public CorsConfigurationSource createCorsConfigurationSource() {

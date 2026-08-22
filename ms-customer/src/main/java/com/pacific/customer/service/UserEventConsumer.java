@@ -89,30 +89,33 @@ public class UserEventConsumer {
           .doOnError(
               error -> {
                 log.error(
-                    "❌ Failed to create customer from UserCreatedEvent - User ID: {}, Correlation ID: {}, Error: {}",
+                    "❌ Failed to create customer from UserCreatedEvent - User ID: {}, Correlation ID: {}, Error: {}. "
+                        + "Offset NOT acknowledged - Kafka will redeliver the message (at-least-once).",
                     finalUserId,
                     finalCorrelationId,
                     error.getMessage(),
                     error);
-                // Still acknowledge to prevent infinite retries, but log the error
-                acknowledgment.acknowledge();
+                // Do NOT acknowledge on failure: leaving the offset uncommitted makes Kafka
+                // redeliver the message (at-least-once). Acknowledging here would permanently
+                // drop the event. No DLQ/retry mechanism exists in this module yet, so
+                // redelivery is the current at-least-once guarantee.
               })
           .subscribe(); // Subscribe to start the reactive chain
 
     } catch (Exception e) {
       log.error(
-          "❌ Failed to process UserCreatedEvent - User ID: {}, Correlation ID: {}, Error: {}",
+          "❌ Failed to process UserCreatedEvent - User ID: {}, Correlation ID: {}, Error: {}. "
+              + "Offset NOT acknowledged - Kafka will redeliver the message (at-least-once).",
           event.getUserId(),
           correlationId,
           e.getMessage(),
           e);
 
-      // In a production system, you might want to send to a dead letter queue
-      // or implement retry logic. For now, we'll acknowledge to prevent infinite retries
-      // but log the error for manual intervention
-      acknowledgment.acknowledge();
+      // Do NOT acknowledge on failure: leaving the offset uncommitted makes Kafka redeliver the
+      // message (at-least-once). Acknowledging here would permanently drop the event.
 
-      // TODO: Implement proper error handling - dead letter queue or retry mechanism
+      // TODO: Implement proper error handling - dead letter queue (customer-events.dlq topic is
+      // already defined in application.yml) or a bounded retry mechanism.
     } finally {
       // Clean up MDC
       MDC.remove(CORRELATION_ID_MDC_KEY);
