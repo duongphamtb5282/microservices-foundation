@@ -40,4 +40,3 @@ public class ValidationErrorResponse {
   /** Trace ID for debugging (optional) */
   private String traceId;
 }
-

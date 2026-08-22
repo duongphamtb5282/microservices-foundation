@@ -49,7 +49,7 @@ spring:
   cache:
     type: redis
     redis:
-      time-to-live: 600000  # 10 minutes default TTL
+      time-to-live: 600000 # 10 minutes default TTL
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
@@ -72,7 +72,7 @@ spring:
 
 # Kafka Configuration (backend-core messaging)
 kafka:
-  enabled: true  # Enable/disable Kafka messaging
+  enabled: true # Enable/disable Kafka messaging
   cqrs:
     enabled: true
     command-topic: "order.commands"
@@ -88,8 +88,8 @@ kafka:
 
 # Cache Configuration (backend-core caching)
 cache:
-  enabled: true  # Enable/disable caching infrastructure
-        metrics-enabled: true
+  enabled: true # Enable/disable caching infrastructure
+  metrics-enabled: true
 
 # Order Service Configuration
 order:
@@ -139,7 +139,7 @@ management:
   # Distributed Tracing
   sleuth:
     sampler:
-      probability: 1.0  # Sample 100% of traces for development
+      probability: 1.0 # Sample 100% of traces for development
     zipkin:
       enabled: true
       endpoint: http://localhost:9411/api/v2/spans
@@ -178,3 +178,10 @@ feign:
         readTimeout: 10000
         loggerLevel: full
 
+# Transactional outbox (ADR-0001) — relay publishes PENDING rows to Kafka
+outbox:
+  poll-interval: PT0.5S
+  batch-size: 100
+  max-attempts: 5
+  cleanup-interval: PT24H
+  retention-days: 7

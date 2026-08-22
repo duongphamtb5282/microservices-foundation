@@ -133,4 +133,3 @@ public class AuthDatabaseService extends BaseDatabaseService {
         getUserCount(), getRoleCount(), getPermissionCount());
   }
 }
-

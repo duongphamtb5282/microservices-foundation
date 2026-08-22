@@ -27,4 +27,3 @@ COMMENT ON COLUMN orders.total_amount IS 'Total order amount';
 COMMENT ON COLUMN orders.currency IS 'Currency code (ISO 4217)';
 COMMENT ON COLUMN orders.status IS 'Order status (PENDING, CONFIRMED, etc.)';
 COMMENT ON COLUMN orders.version IS 'Optimistic locking version';
-

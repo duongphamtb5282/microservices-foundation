@@ -144,6 +144,24 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // Infra-dependent tests (suffixed *IT) run via integrationTest, not with `build`
+    filter {
+        excludeTestsMatching '*IT'
+        failOnNoMatchingTests = false
+    }
+}
+
+// Integration tests require external infrastructure (PostgreSQL, Kafka on localhost).
+// Run explicitly with `./gradlew integrationTest` when the stack is up.
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests requiring external infrastructure (PostgreSQL, Kafka).'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching '*IT'
+    }
 }
 
 // Spotless configuration for code formatting
@@ -191,23 +209,23 @@ spotless {
     }
 }
 
-// Checkstyle configuration - temporarily disabled due to configuration issues
-// checkstyle {
-//     toolVersion = '10.12.4'
-//     configFile = file('config/checkstyle/checkstyle.xml')
-//     showViolations = true
-//     maxWarnings = 0
-//     maxErrors = 0
-//     ignoreFailures = true
-//     reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
-// }
+// Checkstyle configuration - re-enabled once config was fixed for Checkstyle 10 (Gradle 8.14)
+checkstyle {
+    toolVersion = '10.12.4'
+    configFile = file('config/checkstyle/checkstyle.xml')
+    showViolations = true
+    maxWarnings = 0
+    maxErrors = 0
+    ignoreFailures = true
+    reportsDir = layout.buildDirectory.dir("reports/checkstyle").get().asFile
+}
 
 // Code quality tasks
 task codeQuality {
     group = 'verification'
     description = 'Runs all code quality checks (formatting, style, tests)'
 
-    dependsOn 'spotlessCheck', 'test' // checkstyle temporarily disabled
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'checkstyleTest', 'test'
 }
 
 // Pre-commit hook task
@@ -215,5 +233,5 @@ task preCommit {
     group = 'verification'
     description = 'Runs pre-commit checks (formatting, style, compilation)'
 
-    dependsOn 'spotlessCheck', 'compileJava', 'compileTestJava' // checkstyle temporarily disabled
+    dependsOn 'spotlessCheck', 'checkstyleMain', 'compileJava', 'compileTestJava'
 }

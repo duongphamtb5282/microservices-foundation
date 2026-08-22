@@ -4,8 +4,12 @@ import com.pacific.auth.modules.authentication.dto.request.RefreshTokenRequestDt
 import com.pacific.auth.modules.authentication.dto.response.AuthenticationResponseDto;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtValidationResult;
 import com.pacific.auth.modules.authentication.security.jwt.keycloak.KeycloakTokenValidationService;
+import io.jsonwebtoken.Claims;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
-import java.util.UUID;
+import java.util.HexFormat;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -111,8 +115,8 @@ public class StatelessRefreshTokenService {
         log.debug("Token {} added to blacklist", tokenId);
       }
 
-      // Also add full token hash to blacklist for additional security
-      String tokenHash = String.valueOf(token.hashCode());
+      // Also add full token SHA-256 hash to blacklist for additional security
+      String tokenHash = sha256(token);
       String tokenBlacklistKey = "blacklisted_token_hash:" + tokenHash;
       redisTemplate.opsForValue().set(tokenBlacklistKey, "revoked", refreshTokenTtl);
 
@@ -151,7 +155,7 @@ public class StatelessRefreshTokenService {
       }
 
       // Check by token hash
-      String tokenHash = String.valueOf(token.hashCode());
+      String tokenHash = sha256(token);
       String tokenBlacklistKey = "blacklisted_token_hash:" + tokenHash;
       return Boolean.TRUE.equals(redisTemplate.hasKey(tokenBlacklistKey));
 
@@ -187,10 +191,23 @@ public class StatelessRefreshTokenService {
     }
   }
 
-  /** Extract token ID from JWT (simplified - in real implementation, parse JWT) */
+  /** Extract the jti claim from the JWT (S-05: previously returned a random UUID each call). */
   private String extractTokenId(String token) {
-    // This is a simplified implementation
-    // In a real application, you would parse the JWT and extract the 'jti' claim
-    return UUID.randomUUID().toString();
+    try {
+      return jwtService.extractClaim(token, Claims::getId);
+    } catch (Exception e) {
+      log.warn("Could not extract jti from token: {}", e.getMessage());
+      return null;
+    }
+  }
+
+  /** Cryptographic hash of the raw token (S-05: String.hashCode is 32-bit and forgeable). */
+  private String sha256(String token) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      return HexFormat.of().formatHex(digest.digest(token.getBytes(StandardCharsets.UTF_8)));
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 not available", e);
+    }
   }
 }

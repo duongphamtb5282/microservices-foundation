@@ -9,4 +9,3 @@ logging:
     com.pacific.core: INFO
     org.springframework.kafka: WARN
     org.hibernate: WARN
-

@@ -28,4 +28,3 @@ COMMENT ON COLUMN order_items.product_name IS 'Name of the product';
 COMMENT ON COLUMN order_items.quantity IS 'Quantity of the product';
 COMMENT ON COLUMN order_items.unit_price IS 'Price per unit';
 COMMENT ON COLUMN order_items.total_price IS 'Total price (quantity * unit_price)';
-

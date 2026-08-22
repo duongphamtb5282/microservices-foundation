@@ -101,11 +101,6 @@ spec:
             secretKeyRef:
               name: payment-gateway-secrets
               key: api-key
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: encryption-secrets
-              key: encryption-key
         - name: JAVA_OPTS
           value: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
         resources:

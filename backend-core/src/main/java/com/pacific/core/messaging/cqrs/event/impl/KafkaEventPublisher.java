@@ -51,7 +51,10 @@ public class KafkaEventPublisher implements EventPublisher {
     // Add event headers
     headers.forEach((k, v) -> record.headers().add(k, v.getBytes()));
     record.headers().add("event-type", event.getEventType().getBytes());
-    record.headers().add("event-id", event.getEventId().getBytes());
+    // Guard against null event ids — publishing used to NPE here for events without a jti/eventId
+    if (event.getEventId() != null) {
+      record.headers().add("event-id", event.getEventId().getBytes());
+    }
 
     if (event.getCorrelationId() != null) {
       record.headers().add("correlation-id", event.getCorrelationId().getBytes());

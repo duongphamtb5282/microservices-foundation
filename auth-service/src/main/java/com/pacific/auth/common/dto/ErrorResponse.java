@@ -37,4 +37,3 @@ public class ErrorResponse {
   /** Trace ID for debugging (optional) Can be used for correlating logs */
   private String traceId;
 }
-

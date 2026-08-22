@@ -38,4 +38,3 @@ COMMENT ON COLUMN order_events.event_timestamp IS 'When the event occurred (busi
 COMMENT ON COLUMN order_events.correlation_id IS 'Correlation ID for request tracing';
 COMMENT ON COLUMN order_events.user_id IS 'User who triggered the event';
 COMMENT ON COLUMN order_events.version IS 'Event version for ordering';
-

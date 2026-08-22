@@ -41,5 +41,3 @@ public class MongoDatabaseProperties {
     private Duration maxConnectionIdleTime = Duration.ofSeconds(60);
   }
 }
-
-

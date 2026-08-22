@@ -24,6 +24,9 @@ dependencies {
     // Backend Core (includes Kafka wrapper)
     implementation fileTree(dir: '../backend-core/build/libs', include: '*.jar')
 
+    // Shared library (event/command contracts - single source of truth, see ADR-0004)
+    implementation fileTree(dir: '../shared/build/libs', include: '*.jar')
+
     // Spring Boot
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -84,7 +87,7 @@ spotless {
     yaml {
         target fileTree('.') {
             include '**/*.yml', '**/*.yaml'
-            exclude '**/build/**', '**/target/**'
+            exclude '**/build/**', '**/target/**', '**/.github/**', '**/application-template.yml', '**/application-env-examples.yml', '**/application-example.yml'
         }
         prettier()
     }

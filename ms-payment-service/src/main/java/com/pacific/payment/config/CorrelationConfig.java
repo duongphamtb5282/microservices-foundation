@@ -9,20 +9,16 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class CorrelationConfig implements WebMvcConfigurer {
-    
-    /**
-     * Enable @Timed annotations for metrics
-     */
-    @Bean
-    public TimedAspect timedAspect(MeterRegistry registry) {
-        return new TimedAspect(registry);
-    }
-    
-    /**
-     * Add correlation ID to all HTTP metrics automatically
-     */
-    @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(new com.pacific.payment.interceptor.CorrelationMetricsInterceptor());
-    }
+
+  /** Enable @Timed annotations for metrics */
+  @Bean
+  public TimedAspect timedAspect(MeterRegistry registry) {
+    return new TimedAspect(registry);
+  }
+
+  /** Add correlation ID to all HTTP metrics automatically */
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(new com.pacific.payment.interceptor.CorrelationMetricsInterceptor());
+  }
 }

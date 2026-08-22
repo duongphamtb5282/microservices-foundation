@@ -17,4 +17,3 @@ logging:
     com.pacific.core: DEBUG
     org.springframework.kafka: DEBUG
     org.hibernate.SQL: DEBUG
-

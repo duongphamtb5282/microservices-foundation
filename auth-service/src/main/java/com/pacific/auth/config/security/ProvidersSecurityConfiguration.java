@@ -175,7 +175,9 @@ public class ProvidersSecurityConfiguration {
         } catch (Exception e) {
           log.debug("CustomJwtAuthenticationProvider not available: {}", e.getMessage());
         }
+        break;
       case "keycloak":
+        // Fall-through from "custom" was leaking the Keycloak provider into custom mode (S-06)
         try {
           KeycloakJwtAuthenticationProvider keycloakJwtProvider =
               applicationContext.getBean(KeycloakJwtAuthenticationProvider.class);

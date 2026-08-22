@@ -20,7 +20,7 @@ import org.springframework.web.context.WebApplicationContext;
 @ActiveProfiles("dev")
 @DirtiesContext
 @Slf4j
-public class RegistrationKafkaIntegrationTest {
+public class RegistrationKafkaIntegrationIT {
 
   @Autowired private WebApplicationContext webApplicationContext;
 

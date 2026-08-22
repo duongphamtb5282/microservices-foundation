@@ -9,8 +9,8 @@ import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 /**
- * Security configuration for ms-customer service.
- * Configures OAuth2 resource server with selective endpoint access for development.
+ * Security configuration for ms-customer service. Configures OAuth2 resource server with selective
+ * endpoint access for development.
  */
 @Configuration
 @EnableWebFluxSecurity
@@ -18,24 +18,30 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @Profile({"dev", "staging"}) // Only apply in development/staging
 public class SecurityConfig {
 
-    @Bean
-    public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
-        http
-            .csrf().disable()
-            .authorizeExchange(exchange -> exchange
-                // Allow unauthenticated access to Swagger UI and API docs
-                .pathMatchers("/webjars/swagger-ui/**").permitAll()
-                .pathMatchers("/v3/api-docs/**").permitAll()
-                .pathMatchers("/swagger-ui/**").permitAll()
+  @Bean
+  public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
+    http.csrf()
+        .disable()
+        .authorizeExchange(
+            exchange ->
+                exchange
+                    // Allow unauthenticated access to Swagger UI and API docs
+                    .pathMatchers("/webjars/swagger-ui/**")
+                    .permitAll()
+                    .pathMatchers("/v3/api-docs/**")
+                    .permitAll()
+                    .pathMatchers("/swagger-ui/**")
+                    .permitAll()
 
-                // Allow unauthenticated access to actuator endpoints
-                .pathMatchers("/actuator/**").permitAll()
+                    // Allow unauthenticated access to actuator endpoints
+                    .pathMatchers("/actuator/**")
+                    .permitAll()
 
-                // All other requests require authentication
-                .anyExchange().authenticated()
-            )
-            .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
+                    // All other requests require authentication
+                    .anyExchange()
+                    .authenticated())
+        .oauth2ResourceServer(ServerHttpSecurity.OAuth2ResourceServerSpec::jwt);
 
-        return http.build();
-    }
+    return http.build();
+  }
 }

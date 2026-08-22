@@ -83,7 +83,7 @@ spotless {
     yaml {
         target fileTree('.') {
             include '**/*.yml', '**/*.yaml'
-            exclude '**/build/**', '**/target/**'
+            exclude '**/build/**', '**/target/**', '**/.github/**', '**/application-template.yml', '**/application-env-examples.yml', '**/application-example.yml'
         }
         prettier()
     }

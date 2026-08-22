@@ -72,7 +72,25 @@ public class JwtService {
   public String generateRefreshToken(String username) {
     Map<String, Object> claims = new HashMap<>();
     claims.put("type", "refresh");
-    return createToken(claims, username);
+    // jti enables revocation/blacklist by token id (S-05)
+    return createTokenWithId(claims, username);
+  }
+
+  /** Create JWT token with a unique jti claim (needed for the token blacklist) */
+  private String createTokenWithId(Map<String, Object> claims, String subject) {
+    Date now = new Date();
+    long expirationMillis = parseDuration(accessTokenTtl);
+    Date expiryDate = new Date(now.getTime() + expirationMillis);
+
+    return Jwts.builder()
+        .setClaims(claims)
+        .setSubject(subject)
+        .setIssuer(issuer)
+        .setId(java.util.UUID.randomUUID().toString())
+        .setIssuedAt(now)
+        .setExpiration(expiryDate)
+        .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+        .compact();
   }
 
   /** Create JWT token */

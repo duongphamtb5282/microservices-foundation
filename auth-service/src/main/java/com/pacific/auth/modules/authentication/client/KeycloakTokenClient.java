@@ -12,10 +12,13 @@ import org.springframework.web.bind.annotation.RequestParam;
  * Feign Client for Keycloak Token API Handles token generation, refresh, introspection, and
  * revocation
  */
-@ConditionalOnProperty(name = "auth-service.security.keycloak.enabled", havingValue = "true")
+// S-06: same canonical key family as KeycloakProperties and the JWT validation stack
+@ConditionalOnProperty(
+    name = "auth-service.security.authentication.keycloak.enabled",
+    havingValue = "true")
 @FeignClient(
     name = "keycloak-token",
-    url = "${auth-service.security.keycloak.server-url:http://localhost:8080}",
+    url = "${auth-service.security.authentication.keycloak.server-url:http://localhost:8080}",
     configuration = KeycloakFeignConfig.class)
 public interface KeycloakTokenClient {
 

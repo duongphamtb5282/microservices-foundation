@@ -30,7 +30,7 @@ management:
     prometheus:
       enabled: true
 
-# Common Metrics Configuration (shared across all services)
+  # Common Metrics Configuration (shared across all services)
   metrics:
     tags:
       application: ${spring.application.name}
@@ -54,13 +54,12 @@ spring:
     deserialization:
       fail-on-unknown-properties: false
 
-# Common Application Configuration (shared across all services)
+  # Common Application Configuration (shared across all services)
   application:
     name: ${SPRING_APPLICATION_NAME:backend-core}
 
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
-
 # ==============================================================================
 # IMPORTANT: Infrastructure Configuration (Redis, Database, Kafka, etc.)
 # SHOULD BE MANAGED BY EACH INDIVIDUAL SERVICE, NOT BY BACKEND-CORE

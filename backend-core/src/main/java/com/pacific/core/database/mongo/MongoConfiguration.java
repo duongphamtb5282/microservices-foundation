@@ -1,5 +1,9 @@
 package com.pacific.core.database.mongo;
 
+import java.util.Optional;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import com.mongodb.ConnectionString;
 import com.mongodb.MongoClientSettings;
 import com.mongodb.ReadPreference;
@@ -13,9 +17,6 @@ import com.mongodb.event.ConnectionCreatedEvent;
 import com.mongodb.event.ConnectionPoolListener;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +39,11 @@ import org.springframework.util.StringUtils;
 @Configuration
 @RequiredArgsConstructor
 @ConditionalOnClass(MongoClientSettings.class)
-@ConditionalOnProperty(prefix = "mongo", name = "enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(
+    prefix = "mongo",
+    name = "enabled",
+    havingValue = "true",
+    matchIfMissing = true)
 @EnableConfigurationProperties(MongoDatabaseProperties.class)
 public class MongoConfiguration {
 
@@ -62,7 +67,8 @@ public class MongoConfiguration {
       builder.writeConcern(resolveWriteConcern(properties.getWriteConcern()));
 
       poolListener.ifPresent(
-          listener -> builder.applyToConnectionPoolSettings(s -> s.addConnectionPoolListener(listener)));
+          listener ->
+              builder.applyToConnectionPoolSettings(s -> s.addConnectionPoolListener(listener)));
     };
   }
 
@@ -159,7 +165,9 @@ public class MongoConfiguration {
   @PostConstruct
   public void logMongoConfiguration() {
     log.info("🔧 MongoDB configuration enabled: {}", properties.isEnabled());
-    log.info("   - URI: {}", StringUtils.hasText(properties.getUri()) ? properties.getUri() : "constructed");
+    log.info(
+        "   - URI: {}",
+        StringUtils.hasText(properties.getUri()) ? properties.getUri() : "constructed");
     log.info(
         "   - Pool size (min/max): {}/{}",
         properties.getPool().getMinSize(),
@@ -220,5 +228,3 @@ public class MongoConfiguration {
     }
   }
 }
-
-

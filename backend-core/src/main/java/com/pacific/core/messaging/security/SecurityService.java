@@ -37,6 +37,10 @@ public class SecurityService {
   private final SecurityProperties securityProperties;
   private final SecureRandom secureRandom = new SecureRandom();
 
+  // NOTE: topic-key management (generateTopicKey/getTopicKey/clearKeysCache) lived in the removed
+  // MessageEncryptionService (DE-2: Kafka event encryption removed). SecurityService now covers DB
+  // field encryption, API-key validation, and hashing only.
+
   /** Encrypt sensitive data using AES-GCM. */
   public String encrypt(String data) {
     try {

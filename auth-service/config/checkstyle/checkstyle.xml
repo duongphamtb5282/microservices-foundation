@@ -7,100 +7,15 @@
     <!-- Checks that a file can contain a file length -->
     <module name="FileLength"/>
 
-    <!-- Checks for Javadoc comments. -->
-    <module name="JavadocMethod">
-        <property name="scope" value="public"/>
-        <property name="allowMissingParamTags" value="true"/>
-        <property name="allowMissingReturnTag" value="true"/>
-        <property name="allowMissingThrowsTags" value="true"/>
-        <property name="allowThrowsTagsForSubclasses" value="true"/>
-    </module>
-
-    <!-- Checks that variables have Javadoc comments -->
-    <module name="JavadocVariable"/>
-
-    <!-- Checks that classes have Javadoc comments -->
-    <module name="JavadocType"/>
-
-    <!-- Checks for Naming Conventions. -->
-    <module name="ConstantName"/>
-    <module name="LocalFinalVariableName"/>
-    <module name="LocalVariableName"/>
-    <module name="MemberName"/>
-    <module name="MethodName"/>
-    <module name="PackageName"/>
-    <module name="ParameterName"/>
-    <module name="StaticVariableName"/>
-    <module name="TypeName"/>
-
-    <!-- Checks for imports -->
-    <module name="AvoidStarImport"/>
-    <module name="IllegalImport"/>
-    <module name="RedundantImport"/>
-    <module name="UnusedImports"/>
-    <module name="ImportOrder">
-        <property name="groups" value="java,javax,org.springframework,com.demo,com"/>
-        <property name="ordered" value="true"/>
-        <property name="separated" value="true"/>
-        <property name="option" value="top"/>
-        <property name="sortStaticImportsAlphabetically" value="true"/>
-    </module>
-
-    <!-- Checks for Size Violations. -->
+    <!-- Line length (Checker-level since Checkstyle 10) -->
     <module name="LineLength">
-        <property name="fileExtensions" value="java"/>
         <property name="max" value="120"/>
     </module>
-    <module name="MethodLength"/>
-    <module name="ParameterNumber">
-        <property name="max" value="7"/>
+
+    <!-- Headers -->
+    <module name="Header">
+        <property name="header" value="/*&#10; * Copyright (c) 2025 Demo Company. All rights reserved.&#10; *&#10; * This file is part of the Microservices Demo project.&#10; *&#10; * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);&#10; * you may not use this file except in compliance with the License.&#10; * You may obtain a copy of the License at&#10; *&#10; *     http://www.apache.org/licenses/LICENSE-2.0&#10; *&#10; * Unless required by applicable law or agreed to in writing, software&#10; * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,&#10; * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.&#10; * See the License for the specific language governing permissions and&#10; * limitations under the License.&#10; */&#10;"/>
     </module>
-
-    <!-- Checks for whitespace -->
-    <module name="EmptyForIteratorPad"/>
-    <module name="GenericWhitespace"/>
-    <module name="MethodParamPad"/>
-    <module name="NoWhitespaceAfter"/>
-    <module name="NoWhitespaceBefore"/>
-    <module name="OperatorWrap"/>
-    <module name="ParenPad"/>
-    <module name="TypecastParenPad"/>
-    <module name="WhitespaceAfter"/>
-    <module name="WhitespaceAround"/>
-
-    <!-- Modifier Checks -->
-    <module name="ModifierOrder"/>
-    <module name="RedundantModifier"/>
-
-    <!-- Checks for blocks -->
-    <module name="AvoidNestedBlocks"/>
-    <module name="EmptyBlock"/>
-    <module name="LeftCurly"/>
-    <module name="RightCurly"/>
-
-    <!-- Checks for common coding problems -->
-    <module name="EmptyStatement"/>
-    <module name="EqualsHashCode"/>
-    <module name="HiddenField"/>
-    <module name="IllegalInstantiation"/>
-    <module name="InnerAssignment"/>
-    <module name="MagicNumber"/>
-    <module name="MissingSwitchDefault"/>
-    <module name="SimplifyBooleanExpression"/>
-    <module name="SimplifyBooleanReturn"/>
-
-    <!-- Checks for class design -->
-    <module name="DesignForExtension"/>
-    <module name="FinalClass"/>
-    <module name="HideUtilityClassConstructor"/>
-    <module name="InterfaceIsType"/>
-    <module name="VisibilityModifier"/>
-
-    <!-- Miscellaneous other checks -->
-    <module name="ArrayTypeStyle"/>
-    <module name="FinalParameters"/>
-    <module name="TodoComment"/>
-    <module name="UpperEll"/>
 
     <!-- TreeWalker -->
     <module name="TreeWalker">
@@ -112,7 +27,7 @@
         <module name="AnnotationLocation">
             <property name="id" value="AnnotationLocationVariables"/>
             <property name="tokens" value="VARIABLE_DEF"/>
-            <property name="allowSameline" value="false"/>
+            <property name="allowSamelineSingleParameterlessAnnotation" value="false"/>
         </module>
         <module name="MissingDeprecated"/>
         <module name="MissingOverride"/>
@@ -151,6 +66,7 @@
         <module name="IllegalCatch"/>
         <module name="IllegalThrows"/>
         <module name="IllegalType"/>
+        <module name="IllegalInstantiation"/>
         <module name="InnerAssignment"/>
         <module name="MagicNumber"/>
         <module name="MissingSwitchDefault"/>
@@ -163,12 +79,6 @@
         <module name="SuperClone"/>
         <module name="SuperFinalize"/>
         <module name="VariableDeclarationUsageDistance"/>
-
-        <!-- Headers -->
-        <module name="Header">
-            <property name="headerFile" value="java.header"/>
-            <property name="fileExtensions" value="java"/>
-        </module>
 
         <!-- Imports -->
         <module name="AvoidStarImport"/>
@@ -188,11 +98,9 @@
         <!-- Javadoc Comments -->
         <module name="InvalidJavadocPosition"/>
         <module name="JavadocMethod">
-            <property name="scope" value="public"/>
+            <property name="accessModifiers" value="public"/>
             <property name="allowMissingParamTags" value="true"/>
             <property name="allowMissingReturnTag" value="true"/>
-            <property name="allowMissingThrowsTags" value="true"/>
-            <property name="allowThrowsTagsForSubclasses" value="true"/>
         </module>
         <module name="JavadocType"/>
         <module name="JavadocVariable"/>
@@ -203,7 +111,9 @@
         <module name="JavadocParagraph"/>
 
         <!-- Miscellaneous -->
+        <module name="ArrayTypeStyle"/>
         <module name="CommentsIndentation"/>
+        <module name="FinalParameters"/>
         <module name="Indentation">
             <property name="basicOffset" value="4"/>
             <property name="braceAdjustment" value="0"/>
@@ -228,10 +138,6 @@
         <module name="TypeName"/>
 
         <!-- Size Violations -->
-        <module name="LineLength">
-            <property name="fileExtensions" value="java"/>
-            <property name="max" value="120"/>
-        </module>
         <module name="MethodLength">
             <property name="max" value="150"/>
         </module>

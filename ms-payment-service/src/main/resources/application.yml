@@ -44,7 +44,7 @@ spring:
 
 # Kafka Configuration (backend-core messaging)
 kafka:
-  enabled: true  # Enable/disable Kafka messaging
+  enabled: true # Enable/disable Kafka messaging
   cqrs:
     enabled: true
   retry:
@@ -58,8 +58,8 @@ kafka:
 
 # Cache Configuration (backend-core caching)
 cache:
-  enabled: true  # Enable/disable caching infrastructure
-        metrics-enabled: true
+  enabled: true # Enable/disable caching infrastructure
+  metrics-enabled: true
 
 # Payment Service Configuration
 payment:
@@ -89,7 +89,7 @@ management:
       show-details: always
     metrics:
       enabled: true
-  
+
   # HTTP Server Metrics with Correlation ID
   metrics:
     web:
@@ -111,11 +111,11 @@ management:
         client:
           tags:
             service: ${spring.application.name}
-    
+
     tags:
       application: ${spring.application.name}
       environment: ${spring.profiles.active:local}
-    
+
     distribution:
       percentiles-histogram:
         http.server.requests: true
@@ -127,15 +127,6 @@ management:
           - 500
           - 1000
 
-# Distributed Tracing
-spring:
-  sleuth:
-    sampler:
-      probability: 1.0  # Sample 100% of traces for development
-    zipkin:
-      enabled: true
-      endpoint: http://localhost:9411/api/v2/spans
-
 # Logging with correlation ID
 logging:
   pattern:
@@ -145,4 +136,3 @@ logging:
     com.pacific.payment: INFO
     org.springframework.web: INFO
     io.micrometer: INFO
-

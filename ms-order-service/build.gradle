@@ -14,6 +14,7 @@ sourceCompatibility = '21'
 ext {
     springCloudVersion = '2023.0.0'
     backendCoreVersion = '1.0.0'
+    sharedVersion = '1.0.0'
     useLocalDependencies = true // Set to false for production builds
 }
 
@@ -40,6 +41,13 @@ dependencies {
     } else {
         // Use published Maven artifact for production/CI builds
         implementation "com.pacific:backend-core:${backendCoreVersion}"
+    }
+
+    // Shared library (event/command contracts - single source of truth, see ADR-0004)
+    if (project.file('../shared').isDirectory() && useLocalDependencies) {
+        implementation fileTree(dir: '../shared/build/libs', include: '*.jar')
+    } else {
+        implementation "com.pacific:shared:${sharedVersion}"
     }
 
     // Spring Boot
@@ -118,7 +126,7 @@ spotless {
     yaml {
         target fileTree('.') {
             include '**/*.yml', '**/*.yaml'
-            exclude '**/build/**', '**/target/**'
+            exclude '**/build/**', '**/target/**', '**/.github/**', '**/application-template.yml', '**/application-env-examples.yml', '**/application-example.yml'
         }
         prettier()
     }

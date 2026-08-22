@@ -95,11 +95,6 @@ spec:
           value: "6379"
         - name: AUTH_SERVICE_URL
           value: "http://auth-service-prod.auth-service-prod.svc.cluster.local:8080"
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: encryption-secrets
-              key: encryption-key
         - name: JAVA_OPTS
           value: "-Xms512m -Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.security.egd=file:/dev/./urandom"
         resources:

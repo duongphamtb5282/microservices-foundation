@@ -89,11 +89,6 @@ spec:
           value: "6379"
         - name: KEYCLOAK_URL
           value: "http://keycloak.microservices-prod.svc.cluster.local:8080"
-        - name: ENCRYPTION_KEY
-          valueFrom:
-            secretKeyRef:
-              name: encryption-secrets
-              key: encryption-key
         # Tracing configuration
         - name: SPRING_ZIPKIN_BASE_URL
           value: "http://zipkin.microservices-prod.svc.cluster.local:9411"

@@ -22,4 +22,3 @@ logging:
     org.springframework.kafka: DEBUG
     org.hibernate.SQL: DEBUG
     feign: DEBUG
-

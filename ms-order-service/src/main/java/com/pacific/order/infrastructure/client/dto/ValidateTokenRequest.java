@@ -4,13 +4,10 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * Request DTO for token validation
- */
+/** Request DTO for token validation */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 public class ValidateTokenRequest {
-    private String token;
+  private String token;
 }
-

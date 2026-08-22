@@ -35,4 +35,3 @@ COMMENT ON COLUMN payments.method IS 'Payment method (CREDIT_CARD, PAYPAL, etc.)
 COMMENT ON COLUMN payments.status IS 'Payment status (PENDING, COMPLETED, FAILED, etc.)';
 COMMENT ON COLUMN payments.gateway_transaction_id IS 'Transaction ID from payment gateway';
 COMMENT ON COLUMN payments.version IS 'Optimistic locking version';
-

@@ -18,19 +18,22 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(name = "auth-service.security.keycloak.enabled", havingValue = "true")
+// S-06: same canonical key family as KeycloakProperties and the JWT validation stack
+@ConditionalOnProperty(
+    name = "auth-service.security.authentication.keycloak.enabled",
+    havingValue = "true")
 public class KeycloakService {
 
   private final KeycloakTokenClient tokenClient;
   private final KeycloakAdminClient adminClient;
 
-  @Value("${auth-service.security.keycloak.realm:master}")
+  @Value("${auth-service.security.authentication.keycloak.realm:master}")
   private String realm;
 
-  @Value("${auth-service.security.keycloak.client-id:auth-service}")
+  @Value("${auth-service.security.authentication.keycloak.client-id:auth-service}")
   private String clientId;
 
-  @Value("${auth-service.security.keycloak.client-secret:}")
+  @Value("${auth-service.security.authentication.keycloak.credentials-secret:}")
   private String clientSecret;
 
   // Admin token cache (in production, use proper caching)

@@ -1,6 +1,8 @@
 package com.pacific.core;
 
-import com.pacific.core.monitoring.MonitoringProperties;
+import java.util.Collection;
+import java.util.Map;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -12,29 +14,21 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
 
-import java.util.Collection;
-import java.util.Map;
+import com.pacific.core.monitoring.MonitoringProperties;
 
 /**
  * Aspect for logging repository method executions with performance metrics.
- * 
- * Features:
- * - Execution time measurement
- * - Correlation ID support via MDC
- * - Configurable via monitoring properties
- * - Exception handling and logging
- * - Performance threshold warnings
- * - Smart argument and return value logging
+ *
+ * <p>Features: - Execution time measurement - Correlation ID support via MDC - Configurable via
+ * monitoring properties - Exception handling and logging - Performance threshold warnings - Smart
+ * argument and return value logging
  */
 @Aspect
 @Component
 @Slf4j
 @RequiredArgsConstructor
 @EnableConfigurationProperties(MonitoringProperties.class)
-@ConditionalOnProperty(
-    name = "monitoring.enabled",
-    havingValue = "true",
-    matchIfMissing = true)
+@ConditionalOnProperty(name = "monitoring.enabled", havingValue = "true", matchIfMissing = true)
 public class RepositoryLoggingAspect {
 
   private static final String CORRELATION_ID_MDC_KEY = "correlationId";
@@ -45,15 +39,15 @@ public class RepositoryLoggingAspect {
   private final MonitoringProperties monitoringProperties;
 
   /**
-   * Pointcut to match all repository methods.
-   * Matches any method within a class annotated with @Repository.
+   * Pointcut to match all repository methods. Matches any method within a class annotated
+   * with @Repository.
    */
   @Pointcut("within(@org.springframework.stereotype.Repository *)")
   public void repositoryMethods() {}
 
   /**
    * Around advice that logs repository method execution with timing information.
-   * 
+   *
    * @param joinPoint The join point representing the method execution
    * @return The result of the method execution
    * @throws Throwable If the method execution throws an exception
@@ -95,23 +89,20 @@ public class RepositoryLoggingAspect {
     } finally {
       // Log execution completion
       long executionTime = System.currentTimeMillis() - startTime;
-      logExecutionResult(
-          fullMethodName, correlationId, executionTime, result, exception);
+      logExecutionResult(fullMethodName, correlationId, executionTime, result, exception);
     }
   }
 
-  /**
-   * Logs the execution result with appropriate log level based on execution time and outcome.
-   */
+  /** Logs the execution result with appropriate log level based on execution time and outcome. */
   private void logExecutionResult(
       String fullMethodName,
       String correlationId,
       long executionTime,
       Object result,
       Throwable exception) {
-    
+
     String correlationIdStr = correlationId != null ? correlationId : "N/A";
-    
+
     if (exception != null) {
       // Log exception with error level
       log.error(
@@ -151,9 +142,7 @@ public class RepositoryLoggingAspect {
     }
   }
 
-  /**
-   * Formats method arguments for logging, truncating long values.
-   */
+  /** Formats method arguments for logging, truncating long values. */
   private String formatArguments(Object[] args) {
     if (args == null || args.length == 0) {
       return "[]";
@@ -170,27 +159,23 @@ public class RepositoryLoggingAspect {
     return sb.toString();
   }
 
-  /**
-   * Formats a single argument for logging.
-   */
+  /** Formats a single argument for logging. */
   private String formatArgument(Object arg) {
     if (arg == null) {
       return "null";
     }
 
     String argString = arg.toString();
-    
+
     // Truncate very long strings
     if (argString.length() > MAX_ARGUMENT_STRING_LENGTH) {
       return argString.substring(0, MAX_ARGUMENT_STRING_LENGTH) + "...(truncated)";
     }
-    
+
     return argString;
   }
 
-  /**
-   * Formats return value for logging, handling collections and large objects.
-   */
+  /** Formats return value for logging, handling collections and large objects. */
   private String formatReturnValue(Object result) {
     if (result == null) {
       return "null";
@@ -205,12 +190,16 @@ public class RepositoryLoggingAspect {
       if (size > MAX_COLLECTION_SIZE_TO_LOG) {
         return result.getClass().getSimpleName() + "[" + size + " items]";
       }
-      return result.getClass().getSimpleName() + "[" + size + " items: " + 
-          collection.stream()
+      return result.getClass().getSimpleName()
+          + "["
+          + size
+          + " items: "
+          + collection.stream()
               .limit(MAX_COLLECTION_SIZE_TO_LOG)
               .map(this::formatArgument)
               .reduce((a, b) -> a + ", " + b)
-              .orElse("") + "]";
+              .orElse("")
+          + "]";
     }
 
     // Handle maps
@@ -227,7 +216,7 @@ public class RepositoryLoggingAspect {
 
     // Handle Optional
     if (result instanceof java.util.Optional<?> optional) {
-      return optional.isPresent() 
+      return optional.isPresent()
           ? "Optional[" + formatArgument(optional.get()) + "]"
           : "Optional.empty";
     }

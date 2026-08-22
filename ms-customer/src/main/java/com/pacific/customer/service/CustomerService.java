@@ -176,103 +176,116 @@ public class CustomerService {
     return str.substring(0, 1).toUpperCase() + str.substring(1).toLowerCase();
   }
 
-  /**
-   * Find customer by ID
-   */
+  /** Find customer by ID */
   public Mono<Customer> findCustomerById(String id) {
     log.info("Finding customer by ID: {}", id);
-    return customerRepository.findById(id)
+    return customerRepository
+        .findById(id)
         .map(CustomerDocument::toDomain)
-        .doOnSuccess(customer -> log.info("Found customer: {}", customer != null ? customer.id() : "null"))
-        .doOnError(error -> log.error("Error finding customer by ID {}: {}", id, error.getMessage()));
+        .doOnSuccess(
+            customer -> log.info("Found customer: {}", customer != null ? customer.id() : "null"))
+        .doOnError(
+            error -> log.error("Error finding customer by ID {}: {}", id, error.getMessage()));
   }
 
-  /**
-   * Find customer by email
-   */
+  /** Find customer by email */
   public Mono<Customer> findCustomerByEmail(String email) {
     log.info("Finding customer by email: {}", email);
-    return customerRepository.findByEmail(email)
+    return customerRepository
+        .findByEmail(email)
         .map(CustomerDocument::toDomain)
-        .doOnSuccess(customer -> log.info("Found customer: {}", customer != null ? customer.id() : "null"))
-        .doOnError(error -> log.error("Error finding customer by email {}: {}", email, error.getMessage()));
+        .doOnSuccess(
+            customer -> log.info("Found customer: {}", customer != null ? customer.id() : "null"))
+        .doOnError(
+            error ->
+                log.error("Error finding customer by email {}: {}", email, error.getMessage()));
   }
 
-  /**
-   * Get all customers (for development/testing only)
-   */
+  /** Get all customers (for development/testing only) */
   public Flux<Customer> findAllCustomers() {
     log.info("Finding all customers");
-    return customerRepository.findAll()
+    return customerRepository
+        .findAll()
         .map(CustomerDocument::toDomain)
         .doOnComplete(() -> log.info("Retrieved all customers"))
         .doOnError(error -> log.error("Error finding all customers: {}", error.getMessage()));
   }
 
-  /**
-   * Create a new customer manually (not from user event)
-   */
+  /** Create a new customer manually (not from user event) */
   public Mono<Customer> createCustomerManually(
       String email, CustomerProfile profile, CustomerPreferences preferences) {
     log.info("Creating customer manually: {}", email);
-    return customerRepository.existsByEmail(email)
-        .flatMap(exists -> {
-          if (exists) {
-            return Mono.error(new RuntimeException("Customer with email already exists: " + email));
-          }
-          Customer newCustomer = Customer.createNew(email, profile, preferences);
-          CustomerDocument document = CustomerDocument.fromDomain(newCustomer);
-          return customerRepository.save(document)
-              .map(saved -> {
-                log.info("Customer created manually with ID: {}", saved.getId());
-                return saved.toDomain();
-              });
-        })
-        .doOnError(error -> log.error("Error creating customer manually {}: {}", email, error.getMessage()));
+    return customerRepository
+        .existsByEmail(email)
+        .flatMap(
+            exists -> {
+              if (exists) {
+                return Mono.error(
+                    new RuntimeException("Customer with email already exists: " + email));
+              }
+              Customer newCustomer = Customer.createNew(email, profile, preferences);
+              CustomerDocument document = CustomerDocument.fromDomain(newCustomer);
+              return customerRepository
+                  .save(document)
+                  .map(
+                      saved -> {
+                        log.info("Customer created manually with ID: {}", saved.getId());
+                        return saved.toDomain();
+                      });
+            })
+        .doOnError(
+            error ->
+                log.error("Error creating customer manually {}: {}", email, error.getMessage()));
   }
 
-  /**
-   * Update customer profile
-   */
+  /** Update customer profile */
   public Mono<Customer> updateCustomerProfile(String id, CustomerProfile newProfile) {
     log.info("Updating customer profile for ID: {}", id);
     return findCustomerById(id)
-        .flatMap(customer -> {
-          Customer updatedCustomer = customer.withProfile(newProfile);
-          CustomerDocument document = CustomerDocument.fromDomain(updatedCustomer);
-          return customerRepository.save(document)
-              .map(saved -> {
-                log.info("Customer profile updated for ID: {}", id);
-                return saved.toDomain();
-              });
-        })
-        .doOnError(error -> log.error("Error updating customer profile for ID {}: {}", id, error.getMessage()));
+        .flatMap(
+            customer -> {
+              Customer updatedCustomer = customer.withProfile(newProfile);
+              CustomerDocument document = CustomerDocument.fromDomain(updatedCustomer);
+              return customerRepository
+                  .save(document)
+                  .map(
+                      saved -> {
+                        log.info("Customer profile updated for ID: {}", id);
+                        return saved.toDomain();
+                      });
+            })
+        .doOnError(
+            error ->
+                log.error("Error updating customer profile for ID {}: {}", id, error.getMessage()));
   }
 
-  /**
-   * Update customer preferences
-   */
+  /** Update customer preferences */
   public Mono<Customer> updateCustomerPreferences(String id, CustomerPreferences newPreferences) {
     log.info("Updating customer preferences for ID: {}", id);
     return findCustomerById(id)
-        .flatMap(customer -> {
-          Customer updatedCustomer = customer.withPreferences(newPreferences);
-          CustomerDocument document = CustomerDocument.fromDomain(updatedCustomer);
-          return customerRepository.save(document)
-              .map(saved -> {
-                log.info("Customer preferences updated for ID: {}", id);
-                return saved.toDomain();
-              });
-        })
-        .doOnError(error -> log.error("Error updating customer preferences for ID {}: {}", id, error.getMessage()));
+        .flatMap(
+            customer -> {
+              Customer updatedCustomer = customer.withPreferences(newPreferences);
+              CustomerDocument document = CustomerDocument.fromDomain(updatedCustomer);
+              return customerRepository
+                  .save(document)
+                  .map(
+                      saved -> {
+                        log.info("Customer preferences updated for ID: {}", id);
+                        return saved.toDomain();
+                      });
+            })
+        .doOnError(
+            error ->
+                log.error(
+                    "Error updating customer preferences for ID {}: {}", id, error.getMessage()));
   }
 
-  /**
-   * Delete customer by ID
-   */
+  /** Delete customer by ID */
   public Mono<Void> deleteCustomer(String id) {
     log.info("Deleting customer by ID: {}", id);
-    return customerRepository.deleteById(id)
+    return customerRepository
+        .deleteById(id)
         .doOnSuccess(unused -> log.info("Customer deleted successfully: {}", id))
         .doOnError(error -> log.error("Error deleting customer {}: {}", id, error.getMessage()));
   }
