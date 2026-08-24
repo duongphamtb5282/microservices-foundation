@@ -10,6 +10,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 
 @Slf4j
 @Configuration
@@ -27,6 +28,9 @@ public class AuthCacheConfiguration {
   @Value("${auth.cache.scheduled-reload-enabled:true}")
   private boolean scheduledReloadEnabled;
 
+  @Value("${auth.cache.scheduled-reload-interval-ms:300000}")
+  private long scheduledReloadIntervalMs;
+
   public static final String USER_CACHE = "users";
   public static final String ROLE_CACHE = "roles";
   public static final String TOKEN_CACHE = "tokens";
@@ -37,7 +41,7 @@ public class AuthCacheConfiguration {
     if (reloadOnStartup) {
       log.info("🔄 Application ready - performing initial cache reload");
       try {
-        reloadAuthCaches();
+        manualCacheReload();
       } catch (Exception e) {
         log.error("❌ Error during startup cache reload: {}", e.getMessage());
       }
@@ -46,34 +50,34 @@ public class AuthCacheConfiguration {
     }
   }
 
+  /**
+   * Reload all auth caches. This is the single entry point used by the manual reload endpoint
+   * ({@code POST /api/cache/reload/auth/all}) and the scheduled reload task. A manual reload is an
+   * explicit admin action and is never gated by {@code scheduledReloadEnabled} — that flag only
+   * controls the periodic task.
+   */
   public void manualCacheReload() {
-    if (!scheduledReloadEnabled) {
-      log.debug("⏭️ Skipping manual cache reload (auth.cache.scheduled-reload-enabled=false)");
-      return;
-    }
-
     log.info("🔄 Manual cache reload for auth-service");
-    try {
-      long startTime = System.currentTimeMillis();
+    long startTime = System.currentTimeMillis();
 
-      cacheReloader.reloadCache(USER_CACHE);
-      cacheReloader.reloadCache(ROLE_CACHE);
-      cacheReloader.reloadCache(PERMISSION_CACHE);
-
-      long duration = System.currentTimeMillis() - startTime;
-      log.info("✅ Auth-service caches reloaded in {}ms", duration);
-    } catch (Exception e) {
-      log.error("❌ Error during manual cache reload: {}", e.getMessage());
-    }
-  }
-
-  public void reloadAuthCaches() {
-    log.info("🔄 Manual reload of auth-service caches");
     cacheReloader.reloadCache(USER_CACHE);
     cacheReloader.reloadCache(ROLE_CACHE);
     cacheReloader.reloadCache(TOKEN_CACHE);
     cacheReloader.reloadCache(PERMISSION_CACHE);
-    log.info("✅ Auth-service caches manually reloaded");
+
+    long duration = System.currentTimeMillis() - startTime;
+    log.info("✅ Auth-service caches reloaded in {}ms", duration);
+  }
+
+  /** Scheduled reload task — the only consumer of {@code scheduledReloadEnabled}. */
+  @Scheduled(fixedDelayString = "${auth.cache.scheduled-reload-interval-ms:300000}")
+  public void scheduledCacheReload() {
+    if (!scheduledReloadEnabled) {
+      log.debug("⏭️ Skipping scheduled cache reload (auth.cache.scheduled-reload-enabled=false)");
+      return;
+    }
+    log.info("🔄 Scheduled cache reload (interval: {}ms)", scheduledReloadIntervalMs);
+    manualCacheReload();
   }
 
   public void clearAuthCaches() {

@@ -113,7 +113,7 @@ public class CacheController {
   @PostMapping("/reload/auth/all")
   public ResponseEntity<CacheOperationResponse> reloadAuthCaches() {
     log.info("🔄 Reloading all auth caches");
-    authCacheConfiguration.reloadAuthCaches();
+    authCacheConfiguration.manualCacheReload();
 
     return ResponseEntity.ok(
         CacheOperationResponse.builder()
