@@ -40,6 +40,13 @@ public class OrderControllerAdvice {
         .body(ApiResponse.error(ex.getMessage(), "ORDER_CANNOT_BE_CANCELLED"));
   }
 
+  /** Invalid query/handler arguments (e.g. bad paging parameters) are client errors, not 500s. */
+  @ExceptionHandler(IllegalArgumentException.class)
+  public ResponseEntity<ApiResponse<Void>> handleIllegalArgument(IllegalArgumentException ex) {
+    log.warn("Invalid argument: {}", ex.getMessage());
+    return ResponseEntity.badRequest().body(ApiResponse.error(ex.getMessage(), "INVALID_ARGUMENT"));
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationErrors(
       MethodArgumentNotValidException ex) {

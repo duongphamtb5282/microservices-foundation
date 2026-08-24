@@ -197,13 +197,9 @@ public class OrderControllerV2 {
             .correlationId(UUID.randomUUID().toString())
             .build();
 
+    // Query failures surface via QueryExecutionException (SimpleQueryBus) -> OrderControllerAdvice
+    // as a 500; an empty page is a valid result, not an error.
     QueryResult<Page<OrderResponse>> result = queryBus.execute(query);
-
-    if (result.getData().isEmpty()) {
-      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-          .header("X-API-Version", "2.0")
-          .body(ApiResponse.error("Failed to retrieve orders", "QUERY_FAILED"));
-    }
 
     Page<OrderResponse> pageResult = result.getData().get();
 

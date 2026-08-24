@@ -1,7 +1,10 @@
 package com.pacific.order.infrastructure.eventsourcing.repository;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pacific.order.domain.event.OrderCancelledEvent;
+import com.pacific.order.domain.event.OrderCreatedEventV2;
 import com.pacific.order.domain.event.OrderDomainEvent;
+import com.pacific.order.domain.event.OrderStatusUpdatedEvent;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
 import com.pacific.order.infrastructure.eventsourcing.entity.OrderEventEntity;
 import com.pacific.order.infrastructure.exception.EventStoreException;
@@ -147,28 +150,36 @@ public class EventStoreRepositoryImpl implements EventStoreRepository {
   /** Get event class based on event type. */
   private Class<?> getEventClass(String eventType) {
     return switch (eventType) {
-      case "ORDER_CREATED" -> com.pacific.order.domain.event.OrderCreatedEventV2.class;
-      case "ORDER_CANCELLED" -> com.pacific.order.domain.event.OrderCancelledEvent.class;
-      case "ORDER_STATUS_UPDATED" -> com.pacific.order.domain.event.OrderStatusUpdatedEvent.class;
+      case "ORDER_CREATED" -> OrderCreatedEventV2.class;
+      case "ORDER_CANCELLED" -> OrderCancelledEvent.class;
+      case "ORDER_STATUS_UPDATED" -> OrderStatusUpdatedEvent.class;
       default -> throw new IllegalArgumentException("Unknown event type: " + eventType);
     };
   }
 
-  /** Extract user ID from event (fallback to system if not available). */
+  /**
+   * Extract user ID from event. Type-safe replacement for the previous reflection-based lookup,
+   * which silently fell back to "SYSTEM" whenever a getter was missing — masking a corrupt event
+   * as data loss (review finding: never mask).
+   */
   private String extractUserId(OrderDomainEvent event) {
-    try {
-      return event.getClass().getMethod("getUserId").invoke(event).toString();
-    } catch (Exception e) {
-      return "SYSTEM";
-    }
+    return switch (event) {
+      case OrderCreatedEventV2 e -> e.getUserId();
+      case OrderCancelledEvent e -> e.getUserId();
+      case OrderStatusUpdatedEvent e -> e.getUserId();
+      default ->
+          throw new EventStoreException("Unsupported event type for user extraction: " + event.getEventType());
+    };
   }
 
-  /** Extract version from event (default to 1 if not available). */
+  /** Extract version from event. Fails loudly on unknown event types instead of defaulting to 1. */
   private Integer extractVersion(OrderDomainEvent event) {
-    try {
-      return (Integer) event.getClass().getMethod("getVersion").invoke(event);
-    } catch (Exception e) {
-      return 1;
-    }
+    return switch (event) {
+      case OrderCreatedEventV2 e -> e.getVersion();
+      case OrderCancelledEvent e -> e.getVersion();
+      case OrderStatusUpdatedEvent e -> e.getVersion();
+      default ->
+          throw new EventStoreException("Unsupported event type for version extraction: " + event.getEventType());
+    };
   }
 }
