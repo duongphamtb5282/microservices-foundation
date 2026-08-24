@@ -27,7 +27,7 @@ import com.pacific.core.messaging.retry.RetryStrategy;
  * error handling using backend-core components.
  *
  * <p>This class provides: - Automatic retry with exponential backoff - Dead Letter Queue (DLQ)
- * support - Metrics collection - Error classification - Idempotent processing
+ * support - Metrics collection - Error classification
  *
  * @param <T> The event type to consume
  */
@@ -45,7 +45,7 @@ public abstract class BaseEventConsumer<T> {
   // Default retry policy
   protected final RetryPolicy defaultRetryPolicy = RetryPolicy.defaultPolicy();
 
-  // Processing counters for idempotency
+  // Processing counters for statistics (getStats)
   private final AtomicLong processedEvents = new AtomicLong(0);
   private final AtomicLong failedEvents = new AtomicLong(0);
 
@@ -94,18 +94,11 @@ public abstract class BaseEventConsumer<T> {
             .build();
 
     try {
-      // Check if already processed (idempotency)
-      if (isAlreadyProcessed(eventId)) {
-        log.debug("Event already processed: {}", eventId);
-        acknowledgment.acknowledge();
-        return;
-      }
-
       // Process with retry logic
       processWithRetry(event, context);
 
-      // Mark as processed
-      markAsProcessed(eventId);
+      // Record success stats
+      processedEvents.incrementAndGet();
 
       // Acknowledge successful processing
       acknowledgment.acknowledge();
@@ -123,13 +116,10 @@ public abstract class BaseEventConsumer<T> {
       failedEvents.incrementAndGet();
       kafkaMetrics.incrementFailedEvents(topic, event.getClass().getSimpleName());
 
-      // Handle failed event based on error classification
-      try {
-        handleFailedEvent(event, context, e, acknowledgment);
-      } catch (Exception retryException) {
-        // Re-throw retryable exceptions to let Kafka handle retries
-        throw retryException;
-      }
+      // Handle failed event based on error classification. Plain call (ADR-0012): handleFailedEvent
+      // either rethrows retryable failures (Kafka redelivers) or sends to the DLQ; a DLQ failure
+      // throws DlqSendException so the message is never acked (T1).
+      handleFailedEvent(event, context, e, acknowledgment);
     }
   }
 
@@ -137,7 +127,7 @@ public abstract class BaseEventConsumer<T> {
    * Process the event with retry logic. This method will attempt to process the event according to
    * the retry policy.
    */
-  private void processWithRetry(T event, RetryContext context) {
+  private void processWithRetry(T event, RetryContext context) throws Exception {
     RetryPolicy policy = createRetryPolicy(context);
 
     try {
@@ -228,7 +218,7 @@ public abstract class BaseEventConsumer<T> {
     }
   }
 
-  /** Generate unique event ID for idempotency tracking. */
+  /** Generate unique event ID for logging and retry tracking. */
   private String generateEventId(T event) {
     // Try to extract ID from event if it has one
     try {
@@ -246,19 +236,6 @@ public abstract class BaseEventConsumer<T> {
     } catch (Exception e) {
       return null;
     }
-  }
-
-  /** Check if event was already processed (idempotency check). */
-  private boolean isAlreadyProcessed(String eventId) {
-    // In a production system, you would check a persistent store (Redis, database)
-    // For now, we'll use a simple in-memory check
-    return false;
-  }
-
-  /** Mark event as processed. */
-  private void markAsProcessed(String eventId) {
-    processedEvents.incrementAndGet();
-    // In production, store this in Redis or database
   }
 
   /**

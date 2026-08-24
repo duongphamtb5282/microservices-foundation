@@ -2,6 +2,7 @@ package com.pacific.order.infrastructure.outbox.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pacific.order.domain.event.OrderCancelledEvent;
 import com.pacific.order.domain.event.OrderCreatedEvent;
 import com.pacific.order.infrastructure.exception.OutboxSerializationException;
 import com.pacific.order.infrastructure.outbox.entity.OrderOutboxEntity;
@@ -28,6 +29,20 @@ public class OrderOutboxService {
       String payload = objectMapper.writeValueAsString(event);
       outboxRepository.save(OrderOutboxEntity.from(event, payload));
       log.debug("Recorded outbox entry for event: {}", event.getOrderId());
+    } catch (JsonProcessingException e) {
+      throw new OutboxSerializationException("Failed to serialize outbox event", e);
+    }
+  }
+
+  /**
+   * Serialize a cancellation event and persist a PENDING outbox row in the caller's transaction
+   * (ADR-0007 saga compensation — the cancellation commits atomically with the order status).
+   */
+  public void record(OrderCancelledEvent event) {
+    try {
+      String payload = objectMapper.writeValueAsString(event);
+      outboxRepository.save(OrderOutboxEntity.from(event, payload));
+      log.debug("Recorded outbox entry for cancellation: {}", event.getOrderId());
     } catch (JsonProcessingException e) {
       throw new OutboxSerializationException("Failed to serialize outbox event", e);
     }

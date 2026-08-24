@@ -14,6 +14,12 @@ spring:
       enabled: false
     openfeign:
       lazy-attributes-resolution: true
+  task:
+    scheduling:
+      # ADR-0011: separate the relay poll and cleanup jobs (plus any future schedulers) so one
+      # @Scheduled job can never stall the other on the default single-thread scheduler.
+      pool:
+        size: 4
 
   # Spring Kafka Configuration (for backend-core compatibility)
   kafka:
@@ -83,7 +89,8 @@ cache:
 # Database Configuration
 database:
   enabled: ${DATABASE_ENABLED:true}
-  default-max-pool-size: 20
+  # Pool sizing lives in spring.datasource.hikari.* (HikariConfiguration) per profile —
+  # default-max-pool-size was logged but never reached the pool (ADR-0009).
 
 # Monitoring Configuration
 monitoring:
@@ -226,9 +233,8 @@ auth-service:
 
   database:
     schema: ${DB_SCHEMA:auth}
-    pool:
-      max-size: ${DB_MAX_POOL_SIZE:15}
-      min-idle: ${DB_MIN_IDLE:3}
+    # auth-service.database.pool.* removed (ADR-0009): nothing binds this namespace — Hikari reads
+    # spring.datasource.hikari.* only.
 
 # Security Configuration
 security:

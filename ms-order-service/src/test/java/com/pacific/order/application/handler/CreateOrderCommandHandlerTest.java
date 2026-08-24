@@ -107,7 +107,7 @@ class CreateOrderCommandHandlerTest {
     // into CommandResult.failure while the commit still happens
     assertThatThrownBy(() -> handler.handle(command())).isInstanceOf(RuntimeException.class);
 
-    verify(orderOutboxService, never()).record(any());
+    verify(orderOutboxService, never()).record(any(OrderCreatedEvent.class));
   }
 
   @Test
@@ -132,7 +132,7 @@ class CreateOrderCommandHandlerTest {
     assertThat(replay.getData().getOrderId()).isEqualTo("order-1");
 
     verify(orderRepository, times(1)).save(order);
-    verify(orderOutboxService, times(1)).record(any());
+    verify(orderOutboxService, times(1)).record(any(OrderCreatedEvent.class));
     verify(idempotencyRepository, times(1)).save(any(OrderIdempotencyEntity.class));
   }
 

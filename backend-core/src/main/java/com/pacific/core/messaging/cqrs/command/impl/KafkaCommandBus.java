@@ -3,16 +3,18 @@ package com.pacific.core.messaging.cqrs.command.impl;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
 import com.pacific.core.messaging.cqrs.command.Command;
-import com.pacific.core.messaging.cqrs.command.CommandBusException;
 import com.pacific.core.messaging.cqrs.command.CommandBus;
+import com.pacific.core.messaging.cqrs.command.CommandBusException;
 import com.pacific.core.messaging.cqrs.command.CommandHandler;
 import com.pacific.core.messaging.cqrs.command.CommandResult;
 import com.pacific.core.messaging.cqrs.event.EventPublisher;
@@ -29,6 +31,10 @@ public class KafkaCommandBus implements CommandBus {
 
   private final EventPublisher eventPublisher;
   private final KafkaWrapperProperties properties;
+
+  @Qualifier("coreAsyncExecutor")
+  private final Executor coreAsyncExecutor;
+
   private final Map<Class<?>, CommandHandler<?, ?>> handlers = new ConcurrentHashMap<>();
 
   @Override
@@ -76,7 +82,9 @@ public class KafkaCommandBus implements CommandBus {
 
   @Override
   public <C extends Command<R>, R> CompletableFuture<CommandResult<R>> executeAsync(C command) {
-    return CompletableFuture.supplyAsync(() -> execute(command));
+    // ADR-0011: run on the shared core-async executor (virtual threads) — the default
+    // supplyAsync() would land on ForkJoinPool.commonPool(), shared and starvation-prone.
+    return CompletableFuture.supplyAsync(() -> execute(command), coreAsyncExecutor);
   }
 
   @Override

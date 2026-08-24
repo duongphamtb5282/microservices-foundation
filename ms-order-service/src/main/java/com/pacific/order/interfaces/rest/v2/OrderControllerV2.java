@@ -10,9 +10,7 @@ import com.pacific.order.application.dto.CreateOrderRequest;
 import com.pacific.order.application.dto.OrderResponse;
 import com.pacific.order.application.query.GetOrderByIdQuery;
 import com.pacific.order.application.query.GetUserOrdersPageQuery;
-import com.pacific.order.infrastructure.client.AuthServiceClient;
-import com.pacific.order.infrastructure.client.dto.ValidateApiKeyRequest;
-import com.pacific.order.infrastructure.client.dto.ValidateTokenRequest;
+import com.pacific.order.infrastructure.client.AuthValidationService;
 import com.pacific.order.infrastructure.client.dto.ValidateTokenResponse;
 import com.pacific.order.interfaces.rest.dto.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +43,7 @@ public class OrderControllerV2 {
 
   private final CommandBus commandBus;
   private final QueryBus queryBus;
-  private final AuthServiceClient authClient;
+  private final AuthValidationService authValidation;
 
   @PostMapping
   @Operation(
@@ -61,7 +59,7 @@ public class OrderControllerV2 {
     log.info("V2 - Received create order request from client version: {}", clientVersion);
 
     // Validate authentication via Auth Service
-    ValidateTokenResponse authResponse = authClient.validateToken(new ValidateTokenRequest(token));
+    ValidateTokenResponse authResponse = authValidation.validateToken(token);
 
     if (!authResponse.isValid()) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -71,7 +69,7 @@ public class OrderControllerV2 {
     }
 
     // Validate API key if provided
-    if (apiKey != null && !authClient.validateApiKey(new ValidateApiKeyRequest(apiKey))) {
+    if (apiKey != null && !authValidation.validateApiKey(apiKey)) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
           .header("X-API-Version", "2.0")
           .body(ApiResponse.error("Invalid API key", "INVALID_API_KEY"));
@@ -129,12 +127,12 @@ public class OrderControllerV2 {
     String userId = null;
     if (token != null) {
       ValidateTokenResponse authResponse =
-          authClient.validateToken(new ValidateTokenRequest(token));
+          authValidation.validateToken(token);
       if (authResponse.isValid()) {
         userId = authResponse.getUserId();
       }
     } else if (apiKey != null) {
-      if (authClient.validateApiKey(new ValidateApiKeyRequest(apiKey))) {
+      if (authValidation.validateApiKey(apiKey)) {
         // F-08: API-key access carries no user identity — do not fabricate one
         log.info("V2 - Order accessed via API key: {} (client: {})", orderId, clientVersion);
       }
@@ -222,7 +220,7 @@ public class OrderControllerV2 {
     log.info("V2 - Received bulk cancel request for {} orders", request.orderIds().size());
 
     // Validate authentication
-    ValidateTokenResponse authResponse = authClient.validateToken(new ValidateTokenRequest(token));
+    ValidateTokenResponse authResponse = authValidation.validateToken(token);
 
     if (!authResponse.isValid()) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -259,7 +257,7 @@ public class OrderControllerV2 {
     log.info("V2 - Received cancel order request: {} from client: {}", orderId, clientVersion);
 
     // Validate authentication
-    ValidateTokenResponse authResponse = authClient.validateToken(new ValidateTokenRequest(token));
+    ValidateTokenResponse authResponse = authValidation.validateToken(token);
 
     if (!authResponse.isValid()) {
       return ResponseEntity.status(HttpStatus.UNAUTHORIZED)

@@ -1,6 +1,5 @@
 package com.pacific.payment.config;
 
-import com.pacific.payment.modules.consumer.event.OrderCreatedEvent;
 import java.util.HashMap;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -13,10 +12,12 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.ContainerProperties;
-import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 
-/** Kafka consumer configuration */
+/**
+ * Kafka consumer configuration. The order-events topic carries both ORDER_CREATED and
+ * ORDER_CANCELLED payloads (ADR-0007), so the value deserializer is a plain String and
+ * {@code OrderEventConsumer} dispatches on the eventType field.
+ */
 @Configuration
 @EnableKafka
 public class KafkaConsumerConfig {
@@ -28,28 +29,21 @@ public class KafkaConsumerConfig {
   private String groupId;
 
   @Bean
-  public ConsumerFactory<String, OrderCreatedEvent> consumerFactory() {
+  public ConsumerFactory<String, String> consumerFactory() {
     Map<String, Object> config = new HashMap<>();
     config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
     config.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-    config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-    config.put(
-        ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-    config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, OrderCreatedEvent.class.getName());
-    config.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
-    config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+    config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
 
-    return new DefaultKafkaConsumerFactory<>(
-        config, new StringDeserializer(), new JsonDeserializer<>(OrderCreatedEvent.class, false));
+    return new DefaultKafkaConsumerFactory<>(config);
   }
 
   @Bean
-  public ConcurrentKafkaListenerContainerFactory<String, OrderCreatedEvent>
-      kafkaListenerContainerFactory() {
-    ConcurrentKafkaListenerContainerFactory<String, OrderCreatedEvent> factory =
+  public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+    ConcurrentKafkaListenerContainerFactory<String, String> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory());
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);

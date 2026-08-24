@@ -201,13 +201,8 @@ backend-core:
   # Database Configuration
   database:
     enabled: ${DB_ENABLED:true}
-    pool:
-      type: ${DB_POOL_TYPE:hikari}
-      min-idle: ${DB_POOL_MIN_IDLE:2}
-      max-pool-size: ${DB_POOL_MAX_SIZE:10}
-      connection-timeout: ${DB_CONNECTION_TIMEOUT:20s}
-      idle-timeout: ${DB_IDLE_TIMEOUT:5m}
-      max-lifetime: ${DB_MAX_LIFETIME:10m}
+    # database.pool.* removed (ADR-0009): nothing binds this namespace — the real Hikari pool config
+    # is spring.datasource.hikari.* (above, with ${DB_POOL_MAX_SIZE}).
     health-check:
       enabled: ${DB_HEALTH_CHECK_ENABLED:true}
       timeout: ${DB_HEALTH_CHECK_TIMEOUT:5s}

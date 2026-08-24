@@ -2,6 +2,7 @@ package com.pacific.auth.modules.database.service;
 
 import com.pacific.auth.common.exception.DatabaseAccessException;
 import com.pacific.core.service.BaseDatabaseService;
+import java.sql.SQLException;
 import java.util.List;
 import javax.sql.DataSource;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
           }
         }
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       log.error("Error checking if user exists: {}", username, e);
       throw new DatabaseAccessException("Failed to check if user exists: " + username, e);
     }
@@ -71,7 +72,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
           }
         }
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       log.error("Error checking if email exists: {}", email, e);
       throw new DatabaseAccessException("Failed to check if email exists: " + email, e);
     }
@@ -89,7 +90,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
           return resultSet.getLong(1);
         }
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       log.error("Error getting user count", e);
       throw new DatabaseAccessException("Failed to get user count", e);
     }
@@ -107,7 +108,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
           return resultSet.getLong(1);
         }
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       log.error("Error getting role count", e);
       throw new DatabaseAccessException("Failed to get role count", e);
     }
@@ -125,7 +126,7 @@ public class AuthDatabaseService extends BaseDatabaseService {
           return resultSet.getLong(1);
         }
       }
-    } catch (Exception e) {
+    } catch (SQLException e) {
       log.error("Error getting permission count", e);
       throw new DatabaseAccessException("Failed to get permission count", e);
     }

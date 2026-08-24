@@ -3,11 +3,29 @@ package com.pacific.core.messaging;
 import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.Supplier;
 
 import org.slf4j.MDC;
 
 public class MDCUtil {
+
+  /** Executor wired by AsyncExecutorConfiguration (ADR-0011); fallback for non-Spring contexts. */
+  private static volatile Executor asyncExecutor;
+
+  private static final Executor DEFAULT_ASYNC_EXECUTOR =
+      Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("core-async-", 0).factory());
+
+  /** Spring wiring hook (AsyncExecutorConfiguration) — async helpers never use the common pool. */
+  public static void setAsyncExecutor(Executor executor) {
+    asyncExecutor = executor;
+  }
+
+  private static Executor effectiveAsyncExecutor() {
+    Executor executor = asyncExecutor;
+    return executor != null ? executor : DEFAULT_ASYNC_EXECUTOR;
+  }
 
   /**
    * Execute a supplier with the current MDC context propagated to async execution
@@ -20,6 +38,7 @@ public class MDCUtil {
     // Capture current MDC context
     Map<String, String> contextMap = MDC.getCopyOfContextMap();
 
+    // ADR-0011: run on the shared core-async executor (virtual threads), never the common pool.
     return CompletableFuture.supplyAsync(
         () -> {
           try {
@@ -40,7 +59,8 @@ public class MDCUtil {
             // Always clean up MDC in child thread to prevent memory leaks
             MDC.clear();
           }
-        });
+        },
+        effectiveAsyncExecutor());
   }
 
   /**
@@ -77,6 +97,7 @@ public class MDCUtil {
     // Capture current MDC context
     Map<String, String> contextMap = MDC.getCopyOfContextMap();
 
+    // ADR-0011: run on the shared core-async executor (virtual threads), never the common pool.
     CompletableFuture.runAsync(
         () -> {
           try {
@@ -97,7 +118,8 @@ public class MDCUtil {
             // Clean up MDC in child thread
             MDC.clear();
           }
-        });
+        },
+        effectiveAsyncExecutor());
   }
 
   /**

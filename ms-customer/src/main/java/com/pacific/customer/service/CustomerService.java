@@ -23,7 +23,6 @@ import reactor.core.publisher.Mono;
 public class CustomerService {
 
   private final CustomerRepository customerRepository;
-  private final CustomerEventService customerEventService;
 
   /**
    * Creates a customer from a UserCreatedEvent. This is called when a user registers in the auth
@@ -86,9 +85,6 @@ public class CustomerService {
                             customerId,
                             event.getUserId(),
                             correlationId);
-
-                        // Publish customer created event (this would be the internal customer
-                        // event) - disabled: CustomerEventService only has a placeholder
                       })
                   .doOnError(
                       error -> {

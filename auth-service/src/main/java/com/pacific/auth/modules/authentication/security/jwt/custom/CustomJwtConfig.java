@@ -99,8 +99,10 @@ public class CustomJwtConfig {
         SecretKey key = Keys.hmacShaKeyFor(keyBytes);
         log.info("✅ HMAC secret key created successfully (from base64)");
         return key;
-      } catch (Exception e) {
-        // If base64 decoding fails, treat as plain text and encode it
+      } catch (IllegalArgumentException e) {
+        // Invalid base64 — treat as plain text and encode it. Narrow catch (ADR-0012): a
+        // WeakKeyException (secret too short) must NOT be masked as a decode failure — it is a
+        // configuration error and propagates to fail startup loudly.
         log.info("🔐 Using plain text secret, encoding to HMAC key");
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         SecretKey key = Keys.hmacShaKeyFor(keyBytes);

@@ -41,6 +41,20 @@ public class PaymentResultEventHandler {
             .findById(event.getOrderId())
             .orElseThrow(() -> new OrderNotFoundException(event.getOrderId()));
 
+    if ("REFUNDED".equals(event.getStatus())) {
+      // Saga compensation outcome (ADR-0007): the payment was refunded because the order was
+      // cancelled. Cancellation precedes the refund, so the order is already CANCELLED (terminal)
+      // — there is nothing to transition; this branch only records the outcome. Idempotent:
+      // replayed refund events just log again.
+      log.info(
+          "Refund recorded for order {} (paymentId: {}, transactionId: {}) — order stays {}",
+          event.getOrderId(),
+          event.getPaymentId(),
+          event.getTransactionId(),
+          order.getStatus());
+      return;
+    }
+
     // Idempotent by construction: terminal or already-CONFIRMED orders ignore repeat events
     // (the payment outbox is at-least-once; a replayed event must not rewrite settled state)
     if (order.getStatus().isTerminal() || order.getStatus() == OrderStatus.CONFIRMED) {

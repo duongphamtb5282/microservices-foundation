@@ -10,6 +10,7 @@ spring:
     hikari:
       minimum-idle: 5
       maximum-pool-size: 20
+      pool-name: auth-pool # ADR-0009: named pool for observability
 
   # JPA Configuration - Staging
   jpa:

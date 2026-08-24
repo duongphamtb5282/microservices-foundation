@@ -39,9 +39,9 @@ spring:
 # Configure database features in your consumer service
 database:
   enabled: true  # Enable database functionality
-  default-pool-type: hikari
-  default-max-pool-size: 20
-  default-connection-timeout: 20s
+  # Pool sizing: bound ONLY via spring.datasource.hikari.* (HikariConfiguration). The legacy
+  # database.default-* keys were logged but never reached the pool (ADR-0009) — removed.
+  # Set spring.datasource.hikari.maximum-pool-size=${DB_MAX_POOL_SIZE:20} instead.
 
 # Your service's specific database configuration
 spring:
@@ -82,8 +82,8 @@ spring:
     producer:
       acks: 1
 
-database:
-  default-max-pool-size: 5  # Smaller pool for development
+# Smaller pool for development — spring.datasource.hikari.maximum-pool-size=${DB_MAX_POOL_SIZE:5}
+# (legacy database.default-max-pool-size removed per ADR-0009)
 
 # -----------------------------------------------------------------------------
 # PRODUCTION ENVIRONMENT EXAMPLE
@@ -101,8 +101,8 @@ spring:
         username="${KAFKA_USERNAME}"
         password="${KAFKA_PASSWORD}";
 
-database:
-  default-max-pool-size: 50  # Larger pool for production
+# Larger pool for production — spring.datasource.hikari.maximum-pool-size=${DB_MAX_POOL_SIZE:50}
+# (legacy database.default-max-pool-size removed per ADR-0009)
 
 # -----------------------------------------------------------------------------
 # TESTING ENVIRONMENT EXAMPLE
@@ -126,7 +126,8 @@ cache:
 
 database:
   enabled: true
-  default-max-pool-size: 3  # Small pool for testing
+  # Small pool for testing — spring.datasource.hikari.maximum-pool-size=${DB_MAX_POOL_SIZE:3}
+  # (legacy database.default-max-pool-size removed per ADR-0009)
 
 monitoring:
   enabled: false  # Disable monitoring for tests
@@ -172,8 +173,8 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_SERVICE}:5432/${DB_NAME}
 
-database:
-  default-max-pool-size: 20
+# Pool sizing — spring.datasource.hikari.maximum-pool-size=${DB_MAX_POOL_SIZE:20}
+# (legacy database.default-max-pool-size removed per ADR-0009)
 
 monitoring:
   enabled: true

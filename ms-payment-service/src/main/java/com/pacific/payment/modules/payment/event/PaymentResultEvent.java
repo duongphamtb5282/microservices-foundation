@@ -22,7 +22,10 @@ public class PaymentResultEvent implements DomainEvent {
   private final String orderId;
   private final String userId;
 
-  /** PaymentStatus name: "COMPLETED" or "FAILED" (string to keep the two services decoupled). */
+  /**
+   * PaymentStatus name: "COMPLETED", "FAILED" or "REFUNDED" (string to keep the two services
+   * decoupled).
+   */
   private final String status;
 
   private final String transactionId;
@@ -76,6 +79,24 @@ public class PaymentResultEvent implements DomainEvent {
         "FAILED",
         null,
         failureReason,
+        correlationId,
+        Instant.now().toString());
+  }
+
+  /**
+   * Saga compensation return path (ADR-0007): the payment was refunded after the order was
+   * cancelled. Consumed by the order service to record the refund outcome.
+   */
+  public static PaymentResultEvent refunded(
+      String paymentId, String orderId, String userId, String transactionId, String correlationId) {
+    return new PaymentResultEvent(
+        UUID.randomUUID().toString(),
+        paymentId,
+        orderId,
+        userId,
+        "REFUNDED",
+        transactionId,
+        null,
         correlationId,
         Instant.now().toString());
   }

@@ -1,5 +1,6 @@
 package com.pacific.order.infrastructure.outbox.entity;
 
+import com.pacific.order.domain.event.OrderCancelledEvent;
 import com.pacific.order.domain.event.OrderCreatedEvent;
 import com.pacific.order.infrastructure.outbox.OrderOutboxStatus;
 import jakarta.persistence.Column;
@@ -62,6 +63,20 @@ public class OrderOutboxEntity {
     OrderOutboxEntity entity = new OrderOutboxEntity();
     entity.id = UUID.randomUUID().toString();
     entity.eventId = event.getOrderId();
+    entity.aggregateId = event.getAggregateId();
+    entity.eventType = event.getEventType();
+    entity.payload = payload;
+    entity.status = OrderOutboxStatus.PENDING;
+    entity.attempts = 0;
+    entity.createdAt = Instant.now();
+    return entity;
+  }
+
+  /** Build a PENDING outbox row from a cancellation event (ADR-0007 saga compensation). */
+  public static OrderOutboxEntity from(OrderCancelledEvent event, String payload) {
+    OrderOutboxEntity entity = new OrderOutboxEntity();
+    entity.id = UUID.randomUUID().toString();
+    entity.eventId = event.getEventId();
     entity.aggregateId = event.getAggregateId();
     entity.eventType = event.getEventType();
     entity.payload = payload;

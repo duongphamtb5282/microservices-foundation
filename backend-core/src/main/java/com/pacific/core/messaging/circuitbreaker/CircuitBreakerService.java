@@ -2,7 +2,9 @@ package com.pacific.core.messaging.circuitbreaker;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -10,6 +12,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerConfig;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
@@ -18,12 +21,19 @@ import org.springframework.stereotype.Service;
  * breaker implementation.
  */
 @Service
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+// matchIfMissing=true: order/payment never set kafka.enabled, yet AuthValidationService
+// (order) and KeycloakService (auth) must get the breaker. This replaced the redundant
+// manual @Bean in BackendCoreConfiguration (single definition point, ADR-0011).
+@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class CircuitBreakerService {
 
   private final CircuitBreakerRegistry circuitBreakerRegistry;
+
+  @Qualifier("coreAsyncExecutor")
+  private final Executor coreAsyncExecutor;
+
   private final Map<String, CircuitBreaker> circuitBreakers = new ConcurrentHashMap<>();
 
   /**
@@ -39,14 +49,11 @@ public class CircuitBreakerService {
 
     Supplier<T> decoratedSupplier = CircuitBreaker.decorateSupplier(circuitBreaker, operation);
 
-    try {
-      T result = decoratedSupplier.get();
-      log.debug("Circuit breaker call successful for service: {}", serviceName);
-      return result;
-    } catch (Exception e) {
-      log.warn("Circuit breaker call failed for service: {}", serviceName, e);
-      throw e;
-    }
+    // No catch-log-rethrow (ADR-0012): the failure propagates with its own context; the caller
+    // decides the fallback. Resilience4j translates an open breaker into CallNotPermittedException.
+    T result = decoratedSupplier.get();
+    log.debug("Circuit breaker call successful for service: {}", serviceName);
+    return result;
   }
 
   /**
@@ -57,13 +64,13 @@ public class CircuitBreakerService {
    * @param <T> Return type
    * @return CompletableFuture with operation result
    */
-  public <T> java.util.concurrent.CompletableFuture<T> executeAsync(
-      String serviceName, Supplier<T> operation) {
+  public <T> CompletableFuture<T> executeAsync(String serviceName, Supplier<T> operation) {
     CircuitBreaker circuitBreaker = getOrCreateCircuitBreaker(serviceName);
 
     Supplier<T> decoratedSupplier = CircuitBreaker.decorateSupplier(circuitBreaker, operation);
 
-    return java.util.concurrent.CompletableFuture.supplyAsync(decoratedSupplier);
+    // ADR-0011: run on the shared core-async executor (virtual threads) — never the common pool.
+    return CompletableFuture.supplyAsync(decoratedSupplier, coreAsyncExecutor);
   }
 
   /** Get or create circuit breaker for service. */

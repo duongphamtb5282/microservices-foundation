@@ -45,31 +45,16 @@ public class CorrelationIdFilter implements WebFilter {
 
   /** Extract correlation ID from request header or generate a new UUID-based one */
   private String extractOrGenerateCorrelationId(ServerWebExchange exchange) {
-    try {
-      String headerValue = exchange.getRequest().getHeaders().getFirst(CORRELATION_ID_HEADER);
+    // getFirst cannot throw (ADR-0012), so the former catch-all fallback is gone.
+    String headerValue = exchange.getRequest().getHeaders().getFirst(CORRELATION_ID_HEADER);
 
-      // Check for null, empty, or whitespace-only values
-      if (headerValue == null || headerValue.trim().isEmpty()) {
-        return UUID.randomUUID().toString();
-      }
-
-      // Validate that it's not just whitespace
+    if (headerValue != null) {
       String trimmedValue = headerValue.trim();
-      if (trimmedValue.isEmpty()) {
-        return UUID.randomUUID().toString();
+      // Accept only well-formed, reasonably-sized correlation IDs; otherwise generate a new one
+      if (!trimmedValue.isEmpty() && trimmedValue.length() >= 5 && trimmedValue.length() <= 100) {
+        return trimmedValue;
       }
-
-      // Additional validation: ensure it's a reasonable length
-      if (trimmedValue.length() < 5 || trimmedValue.length() > 100) {
-        return UUID.randomUUID().toString();
-      }
-
-      // Return the provided (trimmed) correlation ID
-      return trimmedValue;
-
-    } catch (Exception e) {
-      // Fallback in case of any unexpected issues
-      return UUID.randomUUID().toString();
     }
+    return UUID.randomUUID().toString();
   }
 }

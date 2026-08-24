@@ -70,4 +70,21 @@ public class Payment {
     this.status = PaymentStatus.FAILED;
     this.gatewayResponse = response;
   }
+
+  /** Refund the payment (saga compensation, ADR-0007): COMPLETED -> REFUNDED. */
+  public void markRefunded() {
+    if (status != PaymentStatus.COMPLETED) {
+      throw new PaymentAlreadyTerminalException(
+          "Only a completed payment can be refunded, current status: " + status);
+    }
+    this.status = PaymentStatus.REFUNDED;
+  }
+
+  /** Cancel the payment (saga compensation, ADR-0007): PENDING/PROCESSING -> CANCELLED. */
+  public void markCancelled() {
+    if (status.isTerminal()) {
+      throw new PaymentAlreadyTerminalException("Payment is already in terminal state: " + status);
+    }
+    this.status = PaymentStatus.CANCELLED;
+  }
 }

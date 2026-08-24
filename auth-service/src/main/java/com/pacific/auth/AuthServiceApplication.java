@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * Auth Service Application Handles user management, authentication, and authorization Now uses
@@ -17,6 +18,7 @@ import org.springframework.context.annotation.Import;
           .class
     })
 @Import(BackendCoreAutoConfiguration.class)
+@EnableScheduling // drives UserOutboxRelay (ADR-0006) and AuthCacheConfiguration.scheduledCacheReload
 @EnableFeignClients(basePackages = "com.pacific.auth.modules.authentication.client")
 @ComponentScan(
     basePackages = {

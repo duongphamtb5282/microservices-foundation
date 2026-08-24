@@ -55,43 +55,18 @@ public class CorrelationIdFilter extends OncePerRequestFilter {
    * defensive against null/empty/malformed headers
    */
   private String extractOrGenerateCorrelationId(HttpServletRequest request) {
-    try {
-      // Defensive header extraction - handles null cases
-      String headerValue = request.getHeader(CORRELATION_ID_HEADER);
+    // Defensive header extraction - handles null cases. getHeader cannot throw (ADR-0012), so the
+    // former catch-all fallback is gone.
+    String headerValue = request.getHeader(CORRELATION_ID_HEADER);
 
-      // Check for null, empty, or whitespace-only values
-      if (headerValue == null || headerValue.trim().isEmpty()) {
-        // Generate new UUID-based correlation ID
-        String generatedId = UUID.randomUUID().toString();
-        // Log the generation for debugging (optional)
-        // log.debug("Generated new correlation ID: {}", generatedId);
-        return generatedId;
-      }
-
-      // Validate that it's not just whitespace
+    if (headerValue != null) {
       String trimmedValue = headerValue.trim();
-      if (trimmedValue.isEmpty()) {
-        // Treat as missing and generate new
-        return UUID.randomUUID().toString();
+      // Accept only well-formed, reasonably-sized correlation IDs; otherwise generate a new one
+      if (!trimmedValue.isEmpty() && trimmedValue.length() >= 5 && trimmedValue.length() <= 100) {
+        return trimmedValue;
       }
-
-      // Additional validation: ensure it's a reasonable length and format
-      // (Optional: you can add regex validation for UUID format if needed)
-      if (trimmedValue.length() < 5 || trimmedValue.length() > 100) {
-        // Log warning for suspicious correlation ID
-        // log.warn("Suspicious correlation ID length: {}, generating new one",
-        // trimmedValue.length());
-        return UUID.randomUUID().toString();
-      }
-
-      // Return the provided (trimmed) correlation ID
-      return trimmedValue;
-
-    } catch (Exception e) {
-      // Fallback in case of any unexpected issues
-      // log.error("Error extracting correlation ID, generating new one", e);
-      return UUID.randomUUID().toString();
     }
+    return UUID.randomUUID().toString();
   }
 
   @Override

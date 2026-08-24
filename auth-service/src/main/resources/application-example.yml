@@ -45,12 +45,8 @@ backend-core:
   # Database Configuration
   database:
     enabled: true
-    default-pool-type: hikari
-    default-min-idle: 2
-    default-max-pool-size: 10
-    default-connection-timeout: 20s
-    default-idle-timeout: 5m
-    default-max-lifetime: 10m
+    # default-pool-* removed (ADR-0009): logged only, never reached the pool — Hikari reads
+    # spring.datasource.hikari.*
   
   # Monitoring Configuration
   monitoring:

@@ -3,8 +3,11 @@ package com.pacific.core.messaging.cqrs.query.impl;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.cqrs.query.Query;
@@ -17,7 +20,11 @@ import com.pacific.core.messaging.cqrs.query.QueryResult;
 /** Simple implementation of QueryBus. Queries are typically handled locally, not via Kafka. */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class SimpleQueryBus implements QueryBus {
+
+  @Qualifier("coreAsyncExecutor")
+  private final Executor coreAsyncExecutor;
 
   private final Map<Class<?>, QueryHandler<?, ?>> handlers = new ConcurrentHashMap<>();
 
@@ -45,11 +52,7 @@ public class SimpleQueryBus implements QueryBus {
 
     } catch (Exception e) {
       long duration = System.currentTimeMillis() - startTime;
-      log.error(
-          "Failed to execute query {} after {}ms",
-          query.getQueryType(),
-          duration,
-          e);
+      log.error("Failed to execute query {} after {}ms", query.getQueryType(), duration, e);
       // Rethrow so query failures surface as errors (e.g. HTTP 500 via the global advice)
       // instead of masquerading as an empty result (6b).
       throw new QueryExecutionException("Query execution failed: " + query.getQueryType(), e);
@@ -58,7 +61,8 @@ public class SimpleQueryBus implements QueryBus {
 
   @Override
   public <Q extends Query<R>, R> CompletableFuture<QueryResult<R>> executeAsync(Q query) {
-    return CompletableFuture.supplyAsync(() -> execute(query));
+    // ADR-0011: run on the shared core-async executor (virtual threads) — never the common pool.
+    return CompletableFuture.supplyAsync(() -> execute(query), coreAsyncExecutor);
   }
 
   @Override

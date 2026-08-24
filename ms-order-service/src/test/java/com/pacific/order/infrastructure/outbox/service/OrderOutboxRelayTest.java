@@ -25,6 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pacific.order.domain.event.OrderCancelledEvent;
 import com.pacific.order.domain.event.OrderCreatedEvent;
 import com.pacific.order.domain.model.Money;
 import com.pacific.order.domain.model.OrderItem;
@@ -36,6 +37,9 @@ import com.pacific.order.infrastructure.outbox.repository.OrderOutboxJpaReposito
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Pageable;
@@ -50,13 +54,19 @@ class OrderOutboxRelayTest {
   private final ObjectMapper objectMapper = new OrderOutboxConfig().orderOutboxObjectMapper();
 
   private OrderOutboxRelay relay;
+  private final ExecutorService executor = Executors.newFixedThreadPool(2);
 
   @BeforeEach
   void setUp() {
-    relay = new OrderOutboxRelay(repository, publisher, objectMapper);
+    relay = new OrderOutboxRelay(repository, publisher, objectMapper, executor);
     ReflectionTestUtils.setField(relay, "batchSize", 100);
     ReflectionTestUtils.setField(relay, "maxAttempts", 5);
     ReflectionTestUtils.setField(relay, "retentionDays", 7);
+  }
+
+  @AfterEach
+  void tearDown() {
+    executor.shutdownNow();
   }
 
   @Test
@@ -115,5 +125,31 @@ class OrderOutboxRelayTest {
         .totalAmount(Money.usd(BigDecimal.valueOf(20)))
         .correlationId("corr-1")
         .build();
+  }
+
+  @Test
+  void publishesCancellationEventViaCancelledPublisher() throws Exception {
+    OrderCancelledEvent event =
+        OrderCancelledEvent.builder()
+            .orderId("order-1")
+            .userId("user-1")
+            .reason("user request")
+            .eventTimestamp(java.time.Instant.parse("2026-08-24T10:00:00Z"))
+            .correlationId("corr-1")
+            .cancelledBy("user-1")
+            .version(2)
+            .build();
+    OrderOutboxEntity row = OrderOutboxEntity.from(event, objectMapper.writeValueAsString(event));
+    when(repository.findByStatusOrderByCreatedAtAsc(
+            eq(OrderOutboxStatus.PENDING), any(Pageable.class)))
+        .thenReturn(List.of(row));
+    CompletableFuture<SendResult<String, OrderCancelledEvent>> future = new CompletableFuture<>();
+    future.complete(mock(SendResult.class));
+    when(publisher.publishOrderCancelled(any(OrderCancelledEvent.class))).thenReturn(future);
+
+    relay.publishPendingEvents();
+
+    verify(publisher).publishOrderCancelled(any(OrderCancelledEvent.class));
+    assertThat(row.getStatus()).isEqualTo(OrderOutboxStatus.PUBLISHED);
   }
 }

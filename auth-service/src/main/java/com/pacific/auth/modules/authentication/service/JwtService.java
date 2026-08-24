@@ -171,8 +171,10 @@ public class JwtService {
     try {
       byte[] keyBytes = Decoders.BASE64.decode(secret);
       return Keys.hmacShaKeyFor(keyBytes);
-    } catch (Exception e) {
-      // If base64 decoding fails, treat as plain text and encode it
+    } catch (IllegalArgumentException e) {
+      // Invalid base64 — treat as plain text and encode it. Narrow catch (ADR-0012): a
+      // WeakKeyException (secret too short) must NOT be masked as a decode failure — it is a
+      // configuration error and propagates loudly.
       log.info("🔐 Using plain text secret, encoding to base64");
       byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
       return Keys.hmacShaKeyFor(keyBytes);

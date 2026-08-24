@@ -8,5 +8,8 @@
     <!-- Auth tables migration -->
     <include file="db/changelog/changes/V1__create_auth_tables.sql"/>
 
+    <!-- User outbox table (ADR-0006) -->
+    <include file="db/changelog/changes/V3__create_user_outbox_table.sql"/>
+
 </databaseChangeLog>
 

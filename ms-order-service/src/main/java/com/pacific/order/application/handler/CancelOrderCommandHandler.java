@@ -12,6 +12,7 @@ import com.pacific.order.domain.exception.OrderNotFoundException;
 import com.pacific.order.domain.model.Order;
 import com.pacific.order.domain.repository.OrderRepository;
 import com.pacific.order.infrastructure.eventsourcing.EventStoreRepository;
+import com.pacific.order.infrastructure.outbox.service.OrderOutboxService;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +31,7 @@ public class CancelOrderCommandHandler
   private final EventStoreRepository eventStoreRepository;
   private final BusinessMetricsService businessMetricsService;
   private final CacheManager cacheManager;
+  private final OrderOutboxService outboxService;
 
   @Override
   @Transactional(rollbackFor = Exception.class)
@@ -69,6 +71,12 @@ public class CancelOrderCommandHandler
               .build();
 
       eventStoreRepository.saveEvent(eventSourcingEvent);
+
+      // 5.5 Saga compensation (ADR-0007): record the cancellation into the transactional outbox in
+      // the SAME transaction — the relay publishes OrderCancelledEvent to Kafka (same key =
+      // orderId, so per-partition ordering is preserved) and the payment service refunds the
+      // payment if money moved. A failed outbox write rolls back the cancellation.
+      outboxService.record(eventSourcingEvent);
 
       // 6. Evict caches since order was modified
       evictOrderCaches(savedOrder.getId(), savedOrder.getUserId());

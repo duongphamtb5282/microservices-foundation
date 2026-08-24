@@ -14,7 +14,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -63,21 +62,16 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
 
     log.info("✅ JWT token found: {}...", token.substring(0, Math.min(20, token.length())));
 
-    try {
-      // The provider chain is fully self-contained: every attempt is caught inside
-      // authenticateToken, so this outer catch only guards genuinely unexpected failures.
-      // A failed token never aborts the request — downstream security filters decide.
-      Authentication authentication = authenticateToken(token);
-      if (authentication != null && authentication.isAuthenticated()) {
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        log.debug(
-            "Authentication successful for token type: {}",
-            authentication.getClass().getSimpleName());
-      } else {
-        log.debug("Authentication failed for token — continuing unauthenticated");
-      }
-    } catch (Exception e) {
-      log.warn("Unexpected error during JWT authentication: {}", e.getMessage(), e);
+    // The provider chain is fully self-contained: authenticateToken catches every attempt, so a
+    // failed token never aborts the request — downstream security filters decide.
+    Authentication authentication = authenticateToken(token);
+    if (authentication != null && authentication.isAuthenticated()) {
+      SecurityContextHolder.getContext().setAuthentication(authentication);
+      log.debug(
+          "Authentication successful for token type: {}",
+          authentication.getClass().getSimpleName());
+    } else {
+      log.debug("Authentication failed for token — continuing unauthenticated");
     }
 
     filterChain.doFilter(request, response);
@@ -134,13 +128,11 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
       }
       log.debug("{} returned unauthenticated result", providerName);
       return null;
-    } catch (AuthenticationException e) {
-      // Deliberate fallback chain: an invalid token in one provider must not fail the request.
-      log.warn("{} rejected token (trying next provider): {}", providerName, e.getMessage());
-      return null;
     } catch (Exception e) {
-      // Deliberate fallback chain: a provider failure must not fail the request.
-      log.warn("{} failed (trying next provider): {}", providerName, e.getMessage());
+      // Deliberate fallback chain: a rejected or failed token in one provider must not fail the
+      // request — log and fall through to the next provider (single catch: AuthenticationException
+      // is a subclass of RuntimeException and needs no special handling here).
+      log.warn("{} rejected token (trying next provider): {}", providerName, e.getMessage());
       return null;
     }
   }

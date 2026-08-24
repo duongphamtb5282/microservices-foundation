@@ -26,26 +26,19 @@ public class GetOrderByIdQueryHandler implements QueryHandler<GetOrderByIdQuery,
   @Override
   @Cacheable(value = "order-details", key = "#query.orderId")
   public QueryResult<OrderResponse> handle(GetOrderByIdQuery query) {
-    try {
-      log.debug("Handling GetOrderByIdQuery for order: {}", query.getOrderId());
+    log.debug("Handling GetOrderByIdQuery for order: {}", query.getOrderId());
 
-      Optional<Order> orderOpt = orderRepository.findById(query.getOrderId());
+    Optional<Order> orderOpt = orderRepository.findById(query.getOrderId());
 
-      if (orderOpt.isEmpty()) {
-        log.debug("Order not found: {}", query.getOrderId());
-        return QueryResult.empty();
-      }
-
-      Order order = orderOpt.get();
-      OrderResponse response = OrderMapper.toResponse(order);
-
-      log.debug("Order found: {} (cached)", query.getOrderId());
-      return QueryResult.of(response);
-
-    } catch (Exception e) {
-      // Do not mask a DB failure as "order not found" — rethrow; the query bus surfaces it as a 500
-      log.error("Failed to get order by ID: {}", query.getOrderId(), e);
-      throw e;
+    if (orderOpt.isEmpty()) {
+      log.debug("Order not found: {}", query.getOrderId());
+      return QueryResult.empty();
     }
+
+    Order order = orderOpt.get();
+    OrderResponse response = OrderMapper.toResponse(order);
+
+    log.debug("Order found: {} (cached)", query.getOrderId());
+    return QueryResult.of(response);
   }
 }

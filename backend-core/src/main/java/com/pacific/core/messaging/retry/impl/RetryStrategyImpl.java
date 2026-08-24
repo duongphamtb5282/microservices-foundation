@@ -1,11 +1,14 @@
 package com.pacific.core.messaging.retry.impl;
 
 import java.time.Duration;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -29,8 +32,12 @@ public class RetryStrategyImpl implements RetryStrategy {
   private final ErrorClassifier errorClassifier;
   private final DeadLetterQueue deadLetterQueue;
 
+  @Qualifier("coreAsyncExecutor")
+  private final Executor coreAsyncExecutor;
+
   @Override
-  public <T> T executeWithRetry(Supplier<T> operation, RetryPolicy policy, RetryContext context) {
+  public <T> T executeWithRetry(Callable<T> operation, RetryPolicy policy, RetryContext context)
+      throws Exception {
 
     while (true) {
       try {
@@ -42,7 +49,7 @@ public class RetryStrategyImpl implements RetryStrategy {
             policy.getMaxAttempts(),
             context.getMessageId());
 
-        T result = operation.get();
+        T result = operation.call();
 
         if (context.getAttemptNumber() > 1) {
           log.info(
@@ -118,8 +125,20 @@ public class RetryStrategyImpl implements RetryStrategy {
 
   @Override
   public <T> CompletableFuture<T> executeWithRetryAsync(
-      Supplier<T> operation, RetryPolicy policy, RetryContext context) {
+      Callable<T> operation, RetryPolicy policy, RetryContext context) {
 
-    return CompletableFuture.supplyAsync(() -> executeWithRetry(operation, policy, context));
+    // ADR-0011: run on the shared core-async executor (virtual threads) — never the common pool.
+    // executeWithRetry can rethrow the operation's original checked exception (non-retryable
+    // path); wrap it in CompletionException, mirroring what supplyAsync does natively so the
+    // future still completes exceptionally.
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            return executeWithRetry(operation, policy, context);
+          } catch (Exception e) {
+            throw new CompletionException(e);
+          }
+        },
+        coreAsyncExecutor);
   }
 }

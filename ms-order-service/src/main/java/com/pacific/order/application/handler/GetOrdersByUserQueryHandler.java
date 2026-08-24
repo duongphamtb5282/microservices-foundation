@@ -25,20 +25,13 @@ public class GetOrdersByUserQueryHandler
   @Override
   @Cacheable(value = "user-orders", key = "#query.userId")
   public QueryResult<List<OrderResponse>> handle(GetOrdersByUserQuery query) {
-    try {
-      log.debug("Handling GetOrdersByUserQuery for user: {}", query.getUserId());
+    log.debug("Handling GetOrdersByUserQuery for user: {}", query.getUserId());
 
-      List<Order> orders = orderRepository.findByUserId(query.getUserId());
+    List<Order> orders = orderRepository.findByUserId(query.getUserId());
 
-      List<OrderResponse> responses = orders.stream().map(OrderMapper::toResponse).toList();
+    List<OrderResponse> responses = orders.stream().map(OrderMapper::toResponse).toList();
 
-      log.debug("Found {} orders for user: {} (cached)", responses.size(), query.getUserId());
-      return QueryResult.of(responses);
-
-    } catch (Exception e) {
-      // Do not mask a DB failure as "no orders" — rethrow; the query bus surfaces it as a 500
-      log.error("Failed to get orders by user: {}", query.getUserId(), e);
-      throw e;
-    }
+    log.debug("Found {} orders for user: {} (cached)", responses.size(), query.getUserId());
+    return QueryResult.of(responses);
   }
 }

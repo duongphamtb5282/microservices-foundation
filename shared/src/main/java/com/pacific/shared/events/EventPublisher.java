@@ -1,8 +1,9 @@
 package com.pacific.shared.events;
 
-import com.pacific.shared.exceptions.EventProcessingException;
 import org.springframework.cloud.stream.function.StreamBridge;
 import org.springframework.stereotype.Component;
+
+import com.pacific.shared.exceptions.EventProcessingException;
 
 import lombok.extern.slf4j.Slf4j;
 

@@ -1,6 +1,8 @@
 package com.pacific.order.infrastructure.outbox.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pacific.order.domain.event.OrderCancelledEvent;
 import com.pacific.order.domain.event.OrderCreatedEvent;
 import com.pacific.order.infrastructure.messaging.publisher.OrderEventPublisher;
 import com.pacific.order.infrastructure.outbox.OrderOutboxStatus;
@@ -9,9 +11,12 @@ import com.pacific.order.infrastructure.outbox.repository.OrderOutboxJpaReposito
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -31,6 +36,8 @@ public class OrderOutboxRelay {
   private final OrderOutboxJpaRepository outboxRepository;
   private final OrderEventPublisher eventPublisher;
   private final ObjectMapper objectMapper;
+  @Qualifier("outboxPublisherExecutor")
+  private final Executor outboxPublisherExecutor;
 
   @Value("${outbox.batch-size:100}")
   private int batchSize;
@@ -47,31 +54,52 @@ public class OrderOutboxRelay {
         outboxRepository.findByStatusOrderByCreatedAtAsc(
             OrderOutboxStatus.PENDING, PageRequest.of(0, batchSize));
 
-    for (OrderOutboxEntity row : pending) {
-      try {
-        OrderCreatedEvent event = objectMapper.readValue(row.getPayload(), OrderCreatedEvent.class);
+    if (pending.isEmpty()) {
+      return;
+    }
+
+    // ADR-0011: publish the batch concurrently on the shared outbox-publish executor (4 threads),
+    // then join so the next poll never overlaps this batch's DB writes. Per-row ordering is
+    // preserved because each row is published as one task on a deterministic Kafka key.
+    List<CompletableFuture<Void>> futures =
+        pending.stream()
+            .map(row -> CompletableFuture.runAsync(() -> publishRow(row), outboxPublisherExecutor))
+            .toList();
+    futures.forEach(CompletableFuture::join);
+  }
+
+  private void publishRow(OrderOutboxEntity row) {
+    try {
+      // The outbox carries both ORDER_CREATED and ORDER_CANCELLED rows (ADR-0007) — dispatch on
+      // the serialized eventType so the relay publishes each event as its own type.
+      JsonNode node = objectMapper.readTree(row.getPayload());
+      if ("ORDER_CANCELLED".equals(node.path("eventType").asText())) {
+        OrderCancelledEvent event = objectMapper.treeToValue(node, OrderCancelledEvent.class);
+        eventPublisher.publishOrderCancelled(event).get(10, TimeUnit.SECONDS);
+      } else {
+        OrderCreatedEvent event = objectMapper.treeToValue(node, OrderCreatedEvent.class);
         eventPublisher.publishOrderCreated(event).get(10, TimeUnit.SECONDS);
-        row.markPublished();
-        outboxRepository.save(row);
-        log.debug("Outbox event {} published", row.getEventId());
-      } catch (Exception e) {
-        row.incrementAttempts();
-        if (row.getAttempts() >= maxAttempts) {
-          row.markFailed();
-          log.error(
-              "Outbox event {} failed after {} attempts — marked FAILED",
-              row.getEventId(),
-              row.getAttempts(),
-              e);
-        } else {
-          log.warn(
-              "Outbox publish failed for event {} (attempt {}), will retry",
-              row.getEventId(),
-              row.getAttempts(),
-              e);
-        }
-        outboxRepository.save(row);
       }
+      row.markPublished();
+      outboxRepository.save(row);
+      log.debug("Outbox event {} published", row.getEventId());
+    } catch (Exception e) {
+      row.incrementAttempts();
+      if (row.getAttempts() >= maxAttempts) {
+        row.markFailed();
+        log.error(
+            "Outbox event {} failed after {} attempts — marked FAILED",
+            row.getEventId(),
+            row.getAttempts(),
+            e);
+      } else {
+        log.warn(
+            "Outbox publish failed for event {} (attempt {}), will retry",
+            row.getEventId(),
+            row.getAttempts(),
+            e);
+      }
+      outboxRepository.save(row);
     }
   }
 

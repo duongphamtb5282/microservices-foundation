@@ -110,7 +110,9 @@ public class DatabaseMigrationService {
 
     } catch (Exception e) {
       log.error("Schema validation failed", e);
-      return SchemaValidation.builder().isValid(false).error(e.getMessage()).build();
+      // Generic message on the DTO; the log above carries the exception detail (ADR-0012 — no raw
+      // exception detail in client-visible responses).
+      return SchemaValidation.builder().isValid(false).error("Schema validation failed").build();
     }
   }
 

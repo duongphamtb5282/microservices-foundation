@@ -69,8 +69,16 @@ public class CreatePaymentCommandHandler
               .version(0)
               .build();
 
-      // 3. Validate business rules
-      payment.validate();
+      // 3. Validate business rules — scoped so an IllegalArgumentException is only treated as an
+      //    INVALID_PAYMENT outcome here, before any write. A post-write IAE (mapper, metrics)
+      //    must propagate and roll back instead of committing while the client sees failure
+      //    (ADR-0012 FIX #2).
+      try {
+        payment.validate();
+      } catch (IllegalArgumentException e) {
+        log.error("Invalid payment: {}", e.getMessage());
+        return CommandResult.failure(e.getMessage(), "INVALID_PAYMENT");
+      }
 
       // 4. Process payment (simulate payment gateway call)
       boolean paymentSuccess = paymentService.processPayment(payment);
@@ -115,12 +123,6 @@ public class CreatePaymentCommandHandler
           savedPayment.getStatus());
 
       return CommandResult.success(PaymentMapper.toResponse(savedPayment));
-
-    } catch (IllegalArgumentException e) {
-      // Business validation failure before any write — returning failure is safe (nothing to
-      // commit; no writes have happened yet)
-      log.error("Invalid payment: {}", e.getMessage());
-      return CommandResult.failure(e.getMessage(), "INVALID_PAYMENT");
 
     } catch (Exception e) {
       // F-25: propagate so @Transactional rolls back. Returning failure here would commit the

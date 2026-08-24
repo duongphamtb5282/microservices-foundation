@@ -14,7 +14,7 @@ import org.springframework.web.context.WebApplicationContext;
 
 /**
  * Integration test for user registration with Kafka messaging. Tests the complete flow:
- * registration → audit → Kafka event publishing.
+ * registration → audit → transactional outbox (ADR-0006) → Kafka event publishing.
  */
 @SpringBootTest
 @ActiveProfiles("dev")
@@ -26,6 +26,9 @@ public class RegistrationKafkaIntegrationIT {
 
   @Autowired(required = false)
   private com.pacific.core.messaging.cqrs.event.EventPublisher eventPublisher;
+
+  @Autowired
+  private com.pacific.auth.modules.outbox.repository.UserOutboxJpaRepository outboxRepository;
 
   private MockMvc mockMvc;
 
@@ -66,8 +69,18 @@ public class RegistrationKafkaIntegrationIT {
             org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.email")
                 .value("kafkatest@example.com"));
 
-    log.info("✅ User registration HTTP request successful");
-    log.info("✅ EventPublisher.publish() would be called for Kafka event publishing");
+    // Then: the UserCreatedEvent is in the transactional outbox (ADR-0006) — written atomically
+    // with the user. Status may be PENDING or already PUBLISHED if the relay ran; either way the
+    // event exists and Kafka being down cannot have prevented the registration from committing.
+    var outboxRows = outboxRepository.findAll();
+    assertThat(outboxRows)
+        .anySatisfy(
+            row -> {
+              assertThat(row.getEventType()).isEqualTo("USER_CREATED");
+              assertThat(row.getPayload()).contains("kafkatest");
+              assertThat(row.getStatus()).isNotNull();
+            });
+    log.info("✅ UserCreatedEvent recorded in outbox (total rows: {})", outboxRows.size());
     log.info("🎉 User registration with Kafka integration test completed successfully!");
   }
 }

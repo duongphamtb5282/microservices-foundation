@@ -2,11 +2,7 @@ package com.pacific.core.messaging;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.MDC;
@@ -20,22 +16,11 @@ import org.springframework.stereotype.Component;
     name = "kafka.consumers.enabled",
     havingValue = "true",
     matchIfMissing = false)
-@RequiredArgsConstructor
 @Slf4j
 public class CorrelationAwareConsumer {
 
   private static final String CORRELATION_ID_HEADER_KEY = "correlationId";
   private static final String CORRELATION_ID_MDC_KEY = "correlationId";
-
-  private final ObjectMapper objectMapper;
-  private final ExecutorService executor =
-      Executors.newFixedThreadPool(
-          4,
-          r -> {
-            Thread t = new Thread(r);
-            t.setName("kafka-consumer-thread-" + t.getId());
-            return t;
-          });
 
   @KafkaListener(
       topics = {"customer-events", "order-events", "payment-events"},
@@ -105,10 +90,7 @@ public class CorrelationAwareConsumer {
     }
   }
 
-  /**
-   * Synchronous event processing - all MDC context is preserved For async processing, use
-   * processEventAsynchronous() method
-   */
+  /** Synchronous event processing - all MDC context is preserved */
   private void processEventSynchronous(
       ConsumerRecord<String, Object> record, String correlationId) {
     try {
@@ -145,51 +127,6 @@ public class CorrelationAwareConsumer {
       log.error("Error in synchronous event processing. Correlation ID: {}", correlationId, e);
       throw e; // Re-throw to trigger error handling
     }
-  }
-
-  /**
-   * Asynchronous event processing with full MDC context propagation Use this for long-running or
-   * I/O heavy processing
-   */
-  private void processEventAsynchronous(
-      ConsumerRecord<String, Object> record, String correlationId) {
-    // Capture current MDC context for propagation to child thread
-    Map<String, String> mdcContext = MDC.getCopyOfContextMap();
-
-    executor.submit(
-        () -> {
-          try {
-            // Restore full MDC context in child thread
-            if (mdcContext != null) {
-              mdcContext.forEach(MDC::put);
-            } else {
-              // Ensure correlation ID is at least available
-              MDC.put(CORRELATION_ID_MDC_KEY, correlationId);
-            }
-
-            log.info(
-                "Async processing started. Topic: {}, Correlation ID: {}",
-                record.topic(),
-                correlationId);
-
-            // Perform async processing
-            processEventSynchronous(record, correlationId);
-
-            log.debug("Async processing completed. Correlation ID: {}", correlationId);
-
-          } catch (Exception e) {
-            // Async processing failures must be visible: log at error level with full context (6f)
-            log.error(
-                "Async processing failed. Topic: {}, Correlation ID: {}",
-                record.topic(),
-                correlationId,
-                e);
-            // Could trigger specific async error handling
-          } finally {
-            // Clean up MDC in child thread
-            MDC.clear();
-          }
-        });
   }
 
   private String determineEventType(ConsumerRecord<String, Object> record) {
