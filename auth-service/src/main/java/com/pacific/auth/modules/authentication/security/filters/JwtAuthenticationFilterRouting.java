@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -62,141 +63,86 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
 
     log.info("✅ JWT token found: {}...", token.substring(0, Math.min(20, token.length())));
 
-    log.debug("Processing JWT token with smart routing");
-
     try {
-      Authentication authentication = authenticateToken(request, token);
+      // The provider chain is fully self-contained: every attempt is caught inside
+      // authenticateToken, so this outer catch only guards genuinely unexpected failures.
+      // A failed token never aborts the request — downstream security filters decide.
+      Authentication authentication = authenticateToken(token);
       if (authentication != null && authentication.isAuthenticated()) {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         log.debug(
             "Authentication successful for token type: {}",
             authentication.getClass().getSimpleName());
       } else {
-        log.debug("Authentication failed for token");
-      }
-    } catch (AuthenticationException e) {
-      log.info("Authentication exception: {}, trying fallback providers", e.getMessage());
-      // Try fallback providers when smart routing fails
-      try {
-        log.info("Calling tryFallbackProviders for token");
-        Authentication fallbackAuth = tryFallbackProviders(token);
-        if (fallbackAuth != null && fallbackAuth.isAuthenticated()) {
-          SecurityContextHolder.getContext().setAuthentication(fallbackAuth);
-          log.info(
-              "Fallback authentication successful for token type: {}",
-              fallbackAuth.getClass().getSimpleName());
-        } else {
-          log.info("All authentication methods failed");
-        }
-      } catch (Exception fallbackException) {
-        log.info("Fallback authentication also failed: {}", fallbackException.getMessage());
+        log.debug("Authentication failed for token — continuing unauthenticated");
       }
     } catch (Exception e) {
-      log.warn(
-          "Unexpected error during authentication: {}, trying fallback providers", e.getMessage());
-      // Try fallback providers when unexpected errors occur
-      try {
-        log.info("Calling tryFallbackProviders for token after unexpected error");
-        Authentication fallbackAuth = tryFallbackProviders(token);
-        if (fallbackAuth != null && fallbackAuth.isAuthenticated()) {
-          SecurityContextHolder.getContext().setAuthentication(fallbackAuth);
-          log.info(
-              "Fallback authentication successful for token type: {}",
-              fallbackAuth.getClass().getSimpleName());
-        } else {
-          log.info("All authentication methods failed after unexpected error");
-        }
-      } catch (Exception fallbackException) {
-        log.info(
-            "Fallback authentication also failed after unexpected error: {}",
-            fallbackException.getMessage());
-      }
+      log.warn("Unexpected error during JWT authentication: {}", e.getMessage(), e);
     }
 
     filterChain.doFilter(request, response);
   }
 
-  /** Try fallback providers when smart routing fails. */
-  private Authentication tryFallbackProviders(String token) {
-    log.debug("Trying fallback providers for token");
-
-    // Try custom JWT provider as fallback
-    try {
-      log.debug("Trying custom JWT provider as fallback");
-      return customJwtProvider.authenticate(
-          createAuthenticationForProvider(token, customJwtProvider));
-    } catch (Exception e) {
-      // Deliberate fallback chain: a failure in one provider must not fail the request.
-      log.warn("Custom JWT provider failed (trying next provider): {}", e.getMessage());
-    }
-
-    // Try Keycloak JWT provider as fallback
-    try {
-      log.debug("Trying Keycloak JWT provider as fallback");
-      return keycloakJwtProvider.authenticate(
-          createAuthenticationForProvider(token, keycloakJwtProvider));
-    } catch (Exception e) {
-      // Deliberate fallback chain: a failure in one provider must not fail the request.
-      log.warn("Keycloak JWT provider failed (trying next provider): {}", e.getMessage());
-    }
-
-    // Try authentication manager with provider chain
+  /**
+   * Run the ordered authentication chain exactly once and return the first success: authentication
+   * manager (when configured) → custom JWT provider → Keycloak JWT provider. Every attempt is
+   * individually caught so a failure in one provider falls through to the next instead of failing
+   * the request.
+   */
+  private Authentication authenticateToken(String token) {
     if (authenticationManager != null) {
-      log.debug("Trying authentication manager with provider chain");
-      try {
-        Authentication auth = createAuthentication(token);
-        log.debug("Created authentication object: {}", auth.getClass().getSimpleName());
-        log.debug("Authentication credentials: {}", auth.getCredentials());
-        return authenticationManager.authenticate(auth);
-      } catch (Exception e) {
-        // Deliberate fallback chain: a failure in one provider must not fail the request.
-        log.warn("Authentication manager failed (trying next provider): {}", e.getMessage());
+      Authentication auth =
+          tryAttempt(
+              () -> authenticationManager.authenticate(createAuthentication(token)),
+              "authentication manager");
+      if (auth != null) {
+        return auth;
       }
     }
 
-    log.debug("All fallback authentication methods failed");
-    return null;
-  }
-
-  /** Authenticate the token using smart routing. */
-  private Authentication authenticateToken(HttpServletRequest request, String token) {
-    // Fallback to authentication manager with provider chain
-    if (authenticationManager != null) {
-      log.debug("Using authentication manager with provider chain");
-      try {
-        Authentication auth = createAuthentication(token);
-        log.debug("Created authentication object: {}", auth.getClass().getSimpleName());
-        log.debug("Authentication credentials: {}", auth.getCredentials());
-        return authenticationManager.authenticate(auth);
-      } catch (Exception e) {
-        // Deliberate fallback chain: a failure in one provider must not fail the request.
-        log.warn("Authentication manager failed (trying next provider): {}", e.getMessage());
-      }
+    Authentication auth =
+        tryAttempt(
+            () ->
+                customJwtProvider.authenticate(
+                    createAuthenticationForProvider(token, customJwtProvider)),
+            "custom JWT provider");
+    if (auth != null) {
+      return auth;
     }
 
-    log.debug("No authentication method available - trying direct provider authentication");
-    // Try custom JWT provider as fallback
-    try {
-      log.debug("Trying custom JWT provider as fallback");
-      return customJwtProvider.authenticate(
-          createAuthenticationForProvider(token, customJwtProvider));
-    } catch (Exception e) {
-      // Deliberate fallback chain: a failure in one provider must not fail the request.
-      log.warn("Custom JWT provider failed (trying next provider): {}", e.getMessage());
-    }
-
-    // Try Keycloak JWT provider as fallback
-    try {
-      log.debug("Trying Keycloak JWT provider as fallback");
-      return keycloakJwtProvider.authenticate(
-          createAuthenticationForProvider(token, keycloakJwtProvider));
-    } catch (Exception e) {
-      // Deliberate fallback chain: a failure in one provider must not fail the request.
-      log.warn("Keycloak JWT provider failed (trying next provider): {}", e.getMessage());
+    auth =
+        tryAttempt(
+            () ->
+                keycloakJwtProvider.authenticate(
+                    createAuthenticationForProvider(token, keycloakJwtProvider)),
+            "Keycloak JWT provider");
+    if (auth != null) {
+      return auth;
     }
 
     log.debug("All authentication methods failed");
     return null;
+  }
+
+  /** Run one authentication attempt; a failure falls through to the next provider. */
+  private Authentication tryAttempt(Supplier<Authentication> attempt, String providerName) {
+    try {
+      Authentication auth = attempt.get();
+      if (auth != null && auth.isAuthenticated()) {
+        log.debug("Authentication successful via {}", providerName);
+        return auth;
+      }
+      log.debug("{} returned unauthenticated result", providerName);
+      return null;
+    } catch (AuthenticationException e) {
+      // Deliberate fallback chain: an invalid token in one provider must not fail the request.
+      log.warn("{} rejected token (trying next provider): {}", providerName, e.getMessage());
+      return null;
+    } catch (Exception e) {
+      // Deliberate fallback chain: a provider failure must not fail the request.
+      log.warn("{} failed (trying next provider): {}", providerName, e.getMessage());
+      return null;
+    }
   }
 
   /** Extract JWT token from request. Supports both Authorization header and custom header. */
