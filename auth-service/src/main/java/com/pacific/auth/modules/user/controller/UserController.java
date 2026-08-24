@@ -19,7 +19,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-/** User information controller with advanced caching strategies */
+/**
+ * User information controller with advanced caching strategies. Unexpected exceptions propagate to
+ * {@link com.pacific.auth.common.exception.GlobalExceptionHandler} — no inline catch-all blocks.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/users")
@@ -45,14 +48,9 @@ public class UserController {
   public ResponseEntity<UserInfoDto> getCurrentUserInfo(Authentication authentication) {
     log.info("🔍 Retrieving user info for: {}", authentication.getName());
 
-    try {
-      UserInfoDto userInfo = userService.getCurrentUserInfo(authentication.getName());
-      log.info("✅ User info retrieved successfully for: {}", userInfo);
-      return ResponseEntity.ok(userInfo);
-    } catch (Exception e) {
-      log.error("❌ Error retrieving user info for: {}", authentication.getName(), e);
-      return ResponseEntity.status(500).body(null);
-    }
+    UserInfoDto userInfo = userService.getCurrentUserInfo(authentication.getName());
+    log.info("✅ User info retrieved successfully for: {}", userInfo);
+    return ResponseEntity.ok(userInfo);
   }
 
   /** Get user by ID with caching */
@@ -64,19 +62,13 @@ public class UserController {
   public ResponseEntity<UserInfoDto> getUserById(@PathVariable String userId) {
     log.info("🔍 Retrieving user by ID: {}", userId);
 
-    try {
-      Optional<UserInfoDto> userInfo = userService.getUserById(userId);
-      if (userInfo.isPresent()) {
-        log.info("✅ User found: {}", userId);
-        return ResponseEntity.ok(userInfo.get());
-      } else {
-        log.warn("⚠️ User not found: {}", userId);
-        return ResponseEntity.notFound().build();
-      }
-    } catch (Exception e) {
-      log.error("❌ Error retrieving user by ID: {}", userId, e);
-      return ResponseEntity.status(500).body(null);
+    Optional<UserInfoDto> userInfo = userService.getUserById(userId);
+    if (userInfo.isPresent()) {
+      log.info("✅ User found: {}", userId);
+      return ResponseEntity.ok(userInfo.get());
     }
+    log.warn("⚠️ User not found: {}", userId);
+    return ResponseEntity.notFound().build();
   }
 
   /** Get user by username with caching */
@@ -89,19 +81,13 @@ public class UserController {
   public ResponseEntity<UserInfoDto> getUserByUsername(@PathVariable String username) {
     log.info("🔍 Retrieving user by username: {}", username);
 
-    try {
-      Optional<UserInfoDto> userInfo = userService.getUserByUsername(username);
-      if (userInfo.isPresent()) {
-        log.info("✅ User found by username: {}", username);
-        return ResponseEntity.ok(userInfo.get());
-      } else {
-        log.warn("⚠️ User not found by username: {}", username);
-        return ResponseEntity.notFound().build();
-      }
-    } catch (Exception e) {
-      log.error("❌ Error retrieving user by username: {}", username, e);
-      return ResponseEntity.status(500).body(null);
+    Optional<UserInfoDto> userInfo = userService.getUserByUsername(username);
+    if (userInfo.isPresent()) {
+      log.info("✅ User found by username: {}", username);
+      return ResponseEntity.ok(userInfo.get());
     }
+    log.warn("⚠️ User not found by username: {}", username);
+    return ResponseEntity.notFound().build();
   }
 
   /** Get all users with pagination and caching */
@@ -115,14 +101,9 @@ public class UserController {
       @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size) {
     log.info("🔍 Retrieving all users - page: {}, size: {}", page, size);
 
-    try {
-      Map<String, Object> result = userService.getAllUsers(page, size);
-      log.info("✅ Retrieved {} users", result.get("totalElements"));
-      return ResponseEntity.ok(result);
-    } catch (Exception e) {
-      log.error("❌ Error retrieving all users", e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    Map<String, Object> result = userService.getAllUsers(page, size);
+    log.info("✅ Retrieved {} users", result.get("totalElements"));
+    return ResponseEntity.ok(result);
   }
 
   /** Update user information with cache invalidation */
@@ -139,14 +120,9 @@ public class UserController {
       @PathVariable String userId, @RequestBody Map<String, Object> updates) {
     log.info("🔄 Updating user: {} with updates: {}", userId, updates);
 
-    try {
-      UserInfoDto updatedUser = userService.updateUser(userId, updates);
-      log.info("✅ User updated successfully: {}", userId);
-      return ResponseEntity.ok(updatedUser);
-    } catch (Exception e) {
-      log.error("❌ Error updating user: {}", userId, e);
-      return ResponseEntity.status(500).body(null);
-    }
+    UserInfoDto updatedUser = userService.updateUser(userId, updates);
+    log.info("✅ User updated successfully: {}", userId);
+    return ResponseEntity.ok(updatedUser);
   }
 
   /** Delete user with cache invalidation */
@@ -161,14 +137,9 @@ public class UserController {
   public ResponseEntity<Map<String, String>> deleteUser(@PathVariable String userId) {
     log.info("🗑️ Deleting user: {}", userId);
 
-    try {
-      userService.deleteUser(userId);
-      log.info("✅ User deleted successfully: {}", userId);
-      return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
-    } catch (Exception e) {
-      log.error("❌ Error deleting user: {}", userId, e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    userService.deleteUser(userId);
+    log.info("✅ User deleted successfully: {}", userId);
+    return ResponseEntity.ok(Map.of("message", "User deleted successfully"));
   }
 
   /** Search users with caching */
@@ -184,14 +155,9 @@ public class UserController {
       @RequestParam(defaultValue = "10") int size) {
     log.info("🔍 Searching users with query: '{}', page: {}, size: {}", query, page, size);
 
-    try {
-      Map<String, Object> result = userService.searchUsers(query, page, size);
-      log.info("✅ Found {} users matching query: '{}'", result.get("totalElements"), query);
-      return ResponseEntity.ok(result);
-    } catch (Exception e) {
-      log.error("❌ Error searching users with query: '{}'", query, e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    Map<String, Object> result = userService.searchUsers(query, page, size);
+    log.info("✅ Found {} users matching query: '{}'", result.get("totalElements"), query);
+    return ResponseEntity.ok(result);
   }
 
   /** Get user roles with caching */
@@ -204,14 +170,9 @@ public class UserController {
   public ResponseEntity<Map<String, Object>> getUserRoles(@PathVariable String userId) {
     log.info("🔍 Retrieving roles for user: {}", userId);
 
-    try {
-      Map<String, Object> roles = userService.getUserRoles(userId);
-      log.info("✅ Retrieved {} roles for user: {}", roles.get("roles"), userId);
-      return ResponseEntity.ok(roles);
-    } catch (Exception e) {
-      log.error("❌ Error retrieving roles for user: {}", userId, e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    Map<String, Object> roles = userService.getUserRoles(userId);
+    log.info("✅ Retrieved {} roles for user: {}", roles.get("roles"), userId);
+    return ResponseEntity.ok(roles);
   }
 
   /** Cache management endpoints */
@@ -223,20 +184,15 @@ public class UserController {
   public ResponseEntity<Map<String, String>> clearUserCache() {
     log.info("🧹 Clearing user cache");
 
-    try {
-      cacheService.clear("user-info");
-      cacheService.clear("user-by-id");
-      cacheService.clear("user-by-username");
-      cacheService.clear("all-users");
-      cacheService.clear("user-search");
-      cacheService.clear("user-roles");
+    cacheService.clear("user-info");
+    cacheService.clear("user-by-id");
+    cacheService.clear("user-by-username");
+    cacheService.clear("all-users");
+    cacheService.clear("user-search");
+    cacheService.clear("user-roles");
 
-      log.info("✅ User cache cleared successfully");
-      return ResponseEntity.ok(Map.of("message", "User cache cleared successfully"));
-    } catch (Exception e) {
-      log.error("❌ Error clearing user cache", e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    log.info("✅ User cache cleared successfully");
+    return ResponseEntity.ok(Map.of("message", "User cache cleared successfully"));
   }
 
   /** Get cache statistics for user endpoints */
@@ -248,20 +204,15 @@ public class UserController {
   public ResponseEntity<Map<String, Object>> getUserCacheStats() {
     log.info("📊 Retrieving user cache statistics");
 
-    try {
-      Map<String, Object> stats = new HashMap<>();
-      stats.put("user-info", cacheService.getCacheStatistics());
-      stats.put("user-by-id", cacheService.getCacheStatistics());
-      stats.put("user-by-username", cacheService.getCacheStatistics());
-      stats.put("all-users", cacheService.getCacheStatistics());
-      stats.put("user-search", cacheService.getCacheStatistics());
-      stats.put("user-roles", cacheService.getCacheStatistics());
+    Map<String, Object> stats = new HashMap<>();
+    stats.put("user-info", cacheService.getCacheStatistics());
+    stats.put("user-by-id", cacheService.getCacheStatistics());
+    stats.put("user-by-username", cacheService.getCacheStatistics());
+    stats.put("all-users", cacheService.getCacheStatistics());
+    stats.put("user-search", cacheService.getCacheStatistics());
+    stats.put("user-roles", cacheService.getCacheStatistics());
 
-      log.info("✅ User cache statistics retrieved");
-      return ResponseEntity.ok(stats);
-    } catch (Exception e) {
-      log.error("❌ Error retrieving user cache statistics", e);
-      return ResponseEntity.status(500).body(Map.of("error", "Internal server error"));
-    }
+    log.info("✅ User cache statistics retrieved");
+    return ResponseEntity.ok(stats);
   }
 }
