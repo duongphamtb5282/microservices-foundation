@@ -66,7 +66,10 @@ services:
       - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
       - KAFKA_NUM_PARTITIONS=3
       - KAFKA_DEFAULT_REPLICATION_FACTOR=1
-      - CLUSTER_ID=MkU3OEVBNTcwNTJENDM2QkY=
+      # Must be a base64-encoded 16-byte UUID (24 chars, "==" padding). The previous value
+      # (MkU3OEVBNTcwNTJENDM2QkY=, the docs example) decodes to 17 bytes and kills the broker
+      # at preflight. Generate a fresh one with: kafka-storage.sh random-uuid
+      - CLUSTER_ID=PtZZm8mi41JuGKYZv1IEJA==
     ports:
       - "9092:9092"
     volumes:

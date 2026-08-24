@@ -7,7 +7,7 @@ echo "===================================="
 echo "1. Getting authentication token..."
 TOKEN=$(curl -s -X POST http://localhost:8082/api/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"duong","password":"password123"}' | \
+  -d '{"username":"testuser","password":"password123"}' | \
   jq -r '.accessToken')
 
 if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
