@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
@@ -17,7 +17,7 @@ import com.pacific.shared.messaging.cqrs.event.DomainEvent;
 /** Kafka-based implementation of EventPublisher. */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnClass(KafkaTemplate.class)
 public class KafkaEventPublisher implements EventPublisher {
 
   private final KafkaTemplate<String, Object> kafkaTemplate;

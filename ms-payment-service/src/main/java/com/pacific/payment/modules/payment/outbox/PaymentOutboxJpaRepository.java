@@ -1,5 +1,6 @@
 package com.pacific.payment.modules.payment.outbox;
 
+import com.pacific.payment.modules.payment.outbox.entity.PaymentOutboxEntity;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.data.domain.Pageable;

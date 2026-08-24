@@ -4,7 +4,6 @@ import java.util.Collection;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,10 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
 public class KeycloakJwtAuthenticationConverter
     implements Converter<Jwt, AbstractAuthenticationToken> {
 

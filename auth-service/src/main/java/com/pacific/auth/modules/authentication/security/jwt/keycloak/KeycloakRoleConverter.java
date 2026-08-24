@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -20,10 +19,6 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
 public class KeycloakRoleConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
 
   private final KeycloakProperties keycloakProperties;

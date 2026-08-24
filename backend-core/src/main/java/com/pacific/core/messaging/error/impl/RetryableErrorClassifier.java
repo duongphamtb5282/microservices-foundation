@@ -6,7 +6,7 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.common.errors.NetworkException;
 import org.apache.kafka.common.errors.TimeoutException;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.kafka.support.serializer.DeserializationException;
 import org.springframework.stereotype.Component;
 
@@ -21,7 +21,7 @@ import com.pacific.core.messaging.retry.RetryPolicy;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnClass(DeserializationException.class)
 public class RetryableErrorClassifier implements ErrorClassifier {
 
   @Override

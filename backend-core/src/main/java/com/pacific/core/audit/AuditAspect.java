@@ -10,12 +10,14 @@ import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.aspectj.lang.reflect.MethodSignature;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 /** Aspect that automatically records audit events for service methods annotated with @Audit. */
 @Aspect
+@ConditionalOnClass(JoinPoint.class)
 @Component
 @Slf4j
 @RequiredArgsConstructor

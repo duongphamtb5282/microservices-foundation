@@ -24,7 +24,6 @@ spring:
     redis:
       host: redis
       port: 6379
-      database: 0
       timeout: 2000ms
       lettuce:
         pool:
@@ -78,22 +77,11 @@ monitoring:
 auth-service:
   security:
     authentication:
-      mode: database  # Database authentication for testing
-      database:
-        enabled: true
-        password-encoder: bcrypt
-        lockout:
-          enabled: true
-          max-attempts: 5
-          lock-duration: 30m
-      jwt:
-        enabled: true  # Enable JWT for database auth
       keycloak:
-        enabled: false  # Disable Keycloak for database testing
         server-url: http://keycloak:8080
         realm: auth-service
         client-id: auth-service-client
-        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        credentials-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
         ssl-required: none
         public-client: false
         verify-token-audience: true

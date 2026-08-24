@@ -1,6 +1,7 @@
-package com.pacific.payment.modules.payment.outbox;
+package com.pacific.payment.modules.payment.outbox.entity;
 
 import com.pacific.payment.modules.payment.event.PaymentResultEvent;
+import com.pacific.payment.modules.payment.outbox.PaymentOutboxStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;

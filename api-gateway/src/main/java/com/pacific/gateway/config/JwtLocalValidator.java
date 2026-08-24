@@ -24,7 +24,8 @@ public class JwtLocalValidator {
 
   private final KeycloakJwksService jwksService;
 
-  @Value("${GATEWAY_ISSUER:http://localhost:8080/realms/master}")
+  // Default realm must match the token-issuing realm (auth-service), same as KeycloakJwksService.
+  @Value("${GATEWAY_ISSUER:http://localhost:8080/realms/auth-service}")
   private String expectedIssuer;
 
   public JwtLocalValidator(KeycloakJwksService jwksService) {

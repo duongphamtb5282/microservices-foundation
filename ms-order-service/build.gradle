@@ -58,6 +58,19 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
 
+    // Spring Security core classes ONLY — deliberately NOT the starter, which would auto-configure
+    // a filter chain and lock down every endpoint (auth stays at the gateway, S-06). Backend-core's
+    // SecurityService (AES-GCM field encryption used by EncryptedString/DataEncryptionService) and
+    // SecurityConfig reference security classes; spring-cloud-commons pulls spring-security-crypto
+    // but NOT security-core, so the bean creation crashed with NoClassDefFoundError: GrantedAuthority.
+    implementation 'org.springframework.security:spring-security-core'
+
+    // Resilience4j spring-boot3 starter — backend-core's CircuitBreakerService needs the
+    // CircuitBreakerRegistry bean this starter auto-configures, and AuthValidationService injects
+    // CircuitBreakerService. Declared here because the fileTree backend-core dependency carries NO
+    // transitive metadata, so core's `api` resilience4j deps never reach consumers.
+    implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
+
     // Caching dependencies (needed when using file-based backend-core dependency)
     implementation 'com.github.ben-manes.caffeine:caffeine:3.2.1'
     implementation 'com.github.ben-manes.caffeine:jcache:3.2.1'

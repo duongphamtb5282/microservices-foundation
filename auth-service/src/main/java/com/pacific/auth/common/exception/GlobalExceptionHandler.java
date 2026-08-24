@@ -10,10 +10,14 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.ServletRequestBindingException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
@@ -299,6 +303,44 @@ public class GlobalExceptionHandler {
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
   }
 
+  /**
+   * Missing/invalid required headers or path variables (e.g. no Authorization header on
+   * /api/users/**, /api/roles, /api/cache/**) are client errors, not 500s. Without this handler
+   * the catch-all below turns them into a 500 "An unexpected error occurred" — the exact bug fixed
+   * in order's OrderControllerAdvice for POST /orders (missing Authorization header).
+   */
+  @ExceptionHandler(ServletRequestBindingException.class)
+  public ResponseEntity<ErrorResponse> handleRequestBinding(
+      ServletRequestBindingException ex, WebRequest request) {
+    log.warn("Invalid request binding: {}", ex.getMessage());
+    return buildErrorResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+  }
+
+  /** Malformed request body (bad JSON, wrong field type) is a client error, not a 500. */
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ErrorResponse> handleUnreadableBody(
+      HttpMessageNotReadableException ex, WebRequest request) {
+    log.warn("Unreadable request body: {}", ex.getMessage());
+    return buildErrorResponse(HttpStatus.BAD_REQUEST, "Malformed request body", request);
+  }
+
+  /** Wrong Content-Type is a client error (415), not a 500. */
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(
+      HttpMediaTypeNotSupportedException ex, WebRequest request) {
+    log.warn("Unsupported media type: {}", ex.getMessage());
+    return buildErrorResponse(
+        HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Content-Type not supported", request);
+  }
+
+  /** Wrong HTTP verb (e.g. POST to a GET-only path) is a client error (405), not a 500. */
+  @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+  public ResponseEntity<ErrorResponse> handleMethodNotSupported(
+      HttpRequestMethodNotSupportedException ex, WebRequest request) {
+    log.warn("Method not supported: {}", ex.getMessage());
+    return buildErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed", request);
+  }
+
   /** Handle all other exceptions Catch-all for unexpected errors */
   @ExceptionHandler(Exception.class)
   public ResponseEntity<ErrorResponse> handleGlobalException(Exception ex, WebRequest request) {
@@ -329,5 +371,19 @@ public class GlobalExceptionHandler {
       log.warn("Failed to read Feign exception body", e);
       return "(unreadable)";
     }
+  }
+
+  /** Shared 4xx client-error response builder (same ErrorResponse shape as the other handlers). */
+  private ResponseEntity<ErrorResponse> buildErrorResponse(
+      HttpStatus status, String message, WebRequest request) {
+    ErrorResponse errorResponse =
+        ErrorResponse.builder()
+            .timestamp(LocalDateTime.now())
+            .status(status.value())
+            .error(status.getReasonPhrase())
+            .message(message)
+            .path(request.getDescription(false).replace("uri=", ""))
+            .build();
+    return ResponseEntity.status(status).body(errorResponse);
   }
 }

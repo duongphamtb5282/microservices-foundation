@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -15,7 +16,12 @@ import org.springframework.stereotype.Service;
  * Redis as primary and local cache as fallback.
  */
 @Service("messagingCacheService")
-@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(RedisTemplate.class)
+// matchIfMissing=false to agree with CacheConfig's class gate: this service needs the
+// RedisTemplate<String,Object> bean that only CacheConfig.redisTemplate() provides, so it must
+// register only when cache.enabled is explicitly true. With matchIfMissing=true it registered by
+// default in apps without cache.enabled and failed wiring (ms-customer startup).
+@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
 public class CacheService {

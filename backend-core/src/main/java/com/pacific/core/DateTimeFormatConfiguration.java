@@ -1,18 +1,21 @@
 package com.pacific.core;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.format.FormatterRegistry;
 import org.springframework.format.datetime.standard.DateTimeFormatterRegistrar;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.format.support.DefaultFormattingConversionService;
+import org.springframework.format.support.FormattingConversionService;
 
 /** Configure the converters to use the ISO format for dates by default. */
 @Configuration
-public class DateTimeFormatConfiguration implements WebMvcConfigurer {
+public class DateTimeFormatConfiguration {
 
-  @Override
-  public void addFormatters(FormatterRegistry registry) {
+  @Bean
+  public FormattingConversionService formattingConversionService() {
+    DefaultFormattingConversionService service = new DefaultFormattingConversionService();
     DateTimeFormatterRegistrar registrar = new DateTimeFormatterRegistrar();
     registrar.setUseIsoFormat(true);
-    registrar.registerFormatters(registry);
+    registrar.registerFormatters(service);
+    return service;
   }
 }

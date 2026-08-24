@@ -7,7 +7,6 @@ import java.util.Collection;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -19,10 +18,6 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @Slf4j
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
 public class KeycloakJwtAuthenticationProvider
     extends AbstractJwtAuthenticationProvider<KeycloakJwtAuthenticationToken> {
 
@@ -62,12 +57,23 @@ public class KeycloakJwtAuthenticationProvider
     // Check audience only if configured to do so
     if (keycloakProperties.isVerifyTokenAudience()) {
       List<String> audience = jwt.getAudience();
-      if (audience == null || audience.isEmpty()) {
-        throw new BadCredentialsException("JWT token missing audience");
-      }
-
       String clientId = keycloakProperties.getClientId();
-      if (!audience.contains(clientId)) {
+      if (audience == null || audience.isEmpty()) {
+        // This realm's access tokens carry no `aud` claim (only azp) — Keycloak emits aud on
+        // access tokens only when an audience client scope is configured. Fall back to azp
+        // (authorized party), which Keycloak always sets to the client that performed the grant.
+        // Same fix as KeycloakTokenValidationService.validateTokenClaims.
+        String azp = jwt.getClaimAsString("azp");
+        if (azp == null || !azp.equals(clientId)) {
+          throw new BadCredentialsException(
+              "JWT token audience (azp) does not match client ID: "
+                  + clientId
+                  + " (azp="
+                  + azp
+                  + ")");
+        }
+        log.debug("Token has no aud claim; verified azp client binding: {}", azp);
+      } else if (!audience.contains(clientId)) {
         throw new BadCredentialsException(
             "JWT token audience does not match client ID: " + clientId);
       }

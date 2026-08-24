@@ -7,11 +7,11 @@ import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.MDC;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(ProducerInterceptor.class)
 public class KafkaCorrelationInterceptor implements ProducerInterceptor<String, Object> {
 
   private static final String CORRELATION_ID_HEADER_KEY = "correlationId";

@@ -3,7 +3,6 @@ package com.pacific.auth.modules.authentication.client;
 import com.pacific.auth.modules.authentication.client.dto.KeycloakRoleRepresentation;
 import com.pacific.auth.modules.authentication.client.dto.KeycloakUserRepresentation;
 import java.util.List;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,10 +12,6 @@ import org.springframework.web.bind.annotation.*;
  *
  * <p>Note: Requires service account with admin privileges
  */
-// S-06: same canonical key family as KeycloakProperties and the JWT validation stack
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true")
 @FeignClient(
     name = "keycloak-admin",
     url = "${auth-service.security.authentication.keycloak.server-url:http://localhost:8080}",

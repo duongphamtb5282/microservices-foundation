@@ -89,33 +89,23 @@ public class AuthenticationController {
       return ResponseEntity.status(401).body(Map.of("error", "Invalid authentication"));
     }
 
-    // For Keycloak tokens, re-validate the token and return the token claims
-    if (jwtToken.isKeycloakJwtToken()) {
-      if (tokenValidationService == null) {
-        return ResponseEntity.status(503)
-            .body(Map.of("error", "Keycloak authentication not available"));
-      }
-      JwtValidationResult validation = tokenValidationService.validateToken(jwtToken.getJwtToken());
-      if (!validation.isValid()) {
-        log.warn("Invalid Keycloak token for user info request");
-        return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired token"));
-      }
-
-      log.info(
-          "Retrieved user info for: {} (Token type: {})",
-          validation.getUsername(),
-          jwtToken.getTokenType());
-      return ResponseEntity.ok(
-          userInfoMapper.toKeycloakUserInfo(validation, jwtToken.getTokenType().name()));
+    // Keycloak is the only token issuer (S-06): re-validate the token and return its claims
+    if (tokenValidationService == null) {
+      return ResponseEntity.status(503)
+          .body(Map.of("error", "Keycloak authentication not available"));
+    }
+    JwtValidationResult validation = tokenValidationService.validateToken(jwtToken.getJwtToken());
+    if (!validation.isValid()) {
+      log.warn("Invalid Keycloak token for user info request");
+      return ResponseEntity.status(401).body(Map.of("error", "Invalid or expired token"));
     }
 
-    // For custom JWT tokens, extract info directly from authentication
     log.info(
         "Retrieved user info for: {} (Token type: {})",
-        authentication.getName(),
+        validation.getUsername(),
         jwtToken.getTokenType());
     return ResponseEntity.ok(
-        userInfoMapper.toCustomJwtUserInfo(authentication, jwtToken.getTokenType().name()));
+        userInfoMapper.toKeycloakUserInfo(validation, jwtToken.getTokenType().name()));
   }
 
   /** Validate a token and return its information */
@@ -128,6 +118,12 @@ public class AuthenticationController {
     String token = request.get("token");
     if (token == null || token.isEmpty()) {
       return ResponseEntity.badRequest().body(Map.of("error", "Token is required"));
+    }
+    // Lenient: callers may paste the raw Authorization header ("Bearer eyJ...") — the decoder
+    // cannot parse the prefix, so strip it (2026-08-25: order's Feign client sent the prefixed
+    // value and every token validated as false).
+    if (token.regionMatches(true, 0, "Bearer ", 0, 7)) {
+      token = token.substring(7).trim();
     }
 
     if (tokenValidationService == null) {

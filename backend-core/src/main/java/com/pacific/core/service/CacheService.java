@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service;
 /** Shared cache service for all microservices */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(RedisTemplate.class)
+// matchIfMissing=false to agree with CacheConfig's class gate (see messaging/cache/CacheService).
+@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = false)
 public class CacheService {
 
   private final CacheManager cacheManager;

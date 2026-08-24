@@ -20,6 +20,12 @@ java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
     }
+    // Emit parameter names so Spring constructor injection can disambiguate by
+    // parameter name when several beans share a type (e.g. Executor beans). The
+    // Spring Boot Gradle plugin applies -parameters automatically; backend-core
+    // is a plain library, so apply it explicitly.
+    compileJava.options.compilerArgs += ['-parameters']
+    compileTestJava.options.compilerArgs += ['-parameters']
 }
 
 configurations {

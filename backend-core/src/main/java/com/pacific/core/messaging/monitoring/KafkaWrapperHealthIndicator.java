@@ -8,7 +8,7 @@ import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.kafka.core.KafkaAdmin;
 import org.springframework.stereotype.Component;
 
@@ -18,8 +18,8 @@ import com.pacific.core.messaging.error.DlqStats;
 /** Health indicator for Kafka wrapper. Checks Kafka connectivity and DLQ status. */
 @Slf4j
 @Component("kafkaWrapperHealth")
+@ConditionalOnClass(KafkaAdmin.class)
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaWrapperHealthIndicator implements HealthIndicator {
 
   private final KafkaAdmin kafkaAdmin;

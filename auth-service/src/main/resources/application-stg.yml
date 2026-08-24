@@ -33,16 +33,7 @@ spring:
 auth-service:
   security:
     authentication:
-      mode: custom  # Can be: custom, keycloak, or dual
-      jwt:
-        enabled: false
-        secret: ${JWT_SECRET} # JWT secret MUST come from the environment (S-02)
-        access-token-ttl: ${JWT_ACCESS_TTL:24h}
-        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
-        issuer: ${JWT_ISSUER:auth-service-stg}
-        audience: ${JWT_AUDIENCE:microservices-stg}
       keycloak:
-        enabled: true
         server-url: ${KEYCLOAK_URL:http://localhost:8080}
         realm: ${KEYCLOAK_REALM:auth-service}
         client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}

@@ -16,6 +16,7 @@ import com.pacific.order.infrastructure.outbox.service.OrderOutboxService;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.cache.CacheManager;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,9 @@ public class CancelOrderCommandHandler
   private final OrderRepository orderRepository;
   private final EventStoreRepository eventStoreRepository;
   private final BusinessMetricsService businessMetricsService;
+  // multiLevelCacheManager is @Primary; the qualifier pins this site explicitly (three CacheManager
+  // beans coexist here: redis, local, composite — see config/OrderCacheConfig).
+  @Qualifier("multiLevelCacheManager")
   private final CacheManager cacheManager;
   private final OrderOutboxService outboxService;
 

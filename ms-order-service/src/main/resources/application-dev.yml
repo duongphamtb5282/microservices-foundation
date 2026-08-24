@@ -8,7 +8,9 @@ spring:
     bootstrap-servers: localhost:9092
 
   jpa:
-    show-sql: true
+    # SQL off in dev: the outbox relay polls every 500ms (outbox.poll-interval), so show-sql/SQL
+    # DEBUG floods the console with one SELECT per poll. Flip to true when debugging queries.
+    show-sql: false
 
 services:
   auth-service:
@@ -20,5 +22,5 @@ logging:
     com.pacific.order: DEBUG
     com.pacific.core: DEBUG
     org.springframework.kafka: DEBUG
-    org.hibernate.SQL: DEBUG
+    org.hibernate.SQL: INFO
     feign: DEBUG

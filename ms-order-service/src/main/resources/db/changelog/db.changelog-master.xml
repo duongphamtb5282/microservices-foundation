@@ -10,6 +10,7 @@
     <include file="db/changelog/changes/V3__create_order_events_table.sql"/>
     <include file="db/changelog/changes/V4__create_order_outbox_table.sql"/>
     <include file="db/changelog/changes/V5__create_order_idempotency_keys_table.sql"/>
+    <include file="db/changelog/changes/V6__add_order_customer_columns.sql"/>
 
 </databaseChangeLog>
 

@@ -3,7 +3,7 @@ package com.pacific.core.messaging.config;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -12,9 +12,9 @@ import org.springframework.kafka.annotation.EnableKafka;
 /** Main configuration class for Kafka Wrapper. Enables Kafka and scans for components. */
 @Slf4j
 @Configuration
+@ConditionalOnClass(EnableKafka.class)
 @EnableKafka
 @EnableConfigurationProperties(KafkaWrapperProperties.class)
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
 @ComponentScan(basePackages = "com.pacific.core.messaging")
 @RequiredArgsConstructor
 public class KafkaWrapperConfiguration {

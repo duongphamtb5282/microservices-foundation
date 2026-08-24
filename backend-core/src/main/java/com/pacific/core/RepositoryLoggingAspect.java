@@ -10,6 +10,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
 import org.slf4j.MDC;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -24,6 +25,7 @@ import com.pacific.core.monitoring.MonitoringProperties;
  * argument and return value logging
  */
 @Aspect
+@ConditionalOnClass(ProceedingJoinPoint.class)
 @Component
 @Slf4j
 @RequiredArgsConstructor

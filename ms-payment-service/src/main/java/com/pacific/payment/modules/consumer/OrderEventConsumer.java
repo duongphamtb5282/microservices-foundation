@@ -69,7 +69,7 @@ public class OrderEventConsumer {
   @KafkaListener(
       topics = "${payment.messaging.order-events-topic}",
       groupId = "${spring.kafka.consumer.group-id}",
-      containerFactory = "kafkaListenerContainerFactory")
+      containerFactory = "paymentKafkaListenerContainerFactory")
   public void consumeOrderEvent(
       @Payload String payload,
       @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,

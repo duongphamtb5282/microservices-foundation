@@ -30,7 +30,6 @@ backend-core:
     enabled: true
     enable-cors: true
     enable-csrf: false
-    default-auth-mode: jwt
     
     # CORS Configuration
     cors:

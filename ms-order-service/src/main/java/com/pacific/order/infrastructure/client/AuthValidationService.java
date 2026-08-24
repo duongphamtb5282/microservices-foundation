@@ -27,11 +27,19 @@ public class AuthValidationService {
   private final AuthServiceClient authClient;
   private final CircuitBreakerService circuitBreakerService;
 
-  /** Validate a JWT token via auth-service; returns a closed (invalid) response on failure. */
+  /**
+   * Validate a JWT token via auth-service; returns a closed (invalid) response on failure.
+   *
+   * <p>The controllers hand over the raw {@code Authorization} header value ("Bearer eyJ...") — the
+   * Feign contract sends the bare JWT in the body, so the prefix is stripped here. Without this,
+   * auth's JWT decoder chokes on "Bearer eyJ..." and every valid token validates as false
+   * (2026-08-25: reproduced end-to-end — bare token valid:true, prefixed valid:false).
+   */
   public ValidateTokenResponse validateToken(String token) {
     try {
       return circuitBreakerService.execute(
-          "auth-service", () -> authClient.validateToken(new ValidateTokenRequest(token)));
+          "auth-service",
+          () -> authClient.validateToken(new ValidateTokenRequest(stripBearerPrefix(token))));
     } catch (Exception e) {
       // Boundary catch (ADR-0010/0012): any failure of the external call — FeignException,
       // CallNotPermittedException, timeouts — degrades to "invalid" instead of a 500.
@@ -41,6 +49,18 @@ public class AuthValidationService {
           .message("Authentication service unavailable")
           .build();
     }
+  }
+
+  /** "Bearer eyJ..." (raw Authorization header) -> "eyJ...". Null-safe; tolerates extra spaces. */
+  private static String stripBearerPrefix(String token) {
+    if (token == null) {
+      return null;
+    }
+    String trimmed = token.trim();
+    if (trimmed.regionMatches(true, 0, "Bearer ", 0, 7)) {
+      return trimmed.substring(7).trim();
+    }
+    return trimmed;
   }
 
   /** Validate an API key via auth-service; returns false (closed) on failure. */

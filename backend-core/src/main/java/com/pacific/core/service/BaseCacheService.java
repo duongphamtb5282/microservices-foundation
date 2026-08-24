@@ -76,9 +76,17 @@ public abstract class BaseCacheService {
     }
   }
 
-  /** Check if cache exists. Single responsibility: Check cache existence. */
+  /**
+   * Check if cache exists. Single responsibility: Check cache existence.
+   *
+   * <p>Must NOT use {@code cacheManager.getCache(name) != null}: dynamic cache managers
+   * (Caffeine, Redis, and core's MultiTierCacheManager) lazily CREATE a cache for any name via
+   * computeIfAbsent, so a non-null result means "created just now", not "existed" — and it
+   * pollutes the manager with phantom caches that then appear in stats. The registered-name set
+   * is the source of truth.
+   */
   public boolean cacheExists(String cacheName) {
-    return cacheManager.getCache(cacheName) != null;
+    return cacheManager.getCacheNames().contains(cacheName);
   }
 
   /** Get cache statistics. Single responsibility: Provide cache statistics. */

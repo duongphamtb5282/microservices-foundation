@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.actuate.health.Health;
 import org.springframework.boot.actuate.health.HealthIndicator;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -18,7 +19,10 @@ import org.springframework.stereotype.Service;
 /** Centralized health monitoring service for all microservices */
 @Slf4j
 @Service
-@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(RedisTemplate.class)
+// matchIfMissing=false to agree with CacheConfig's class gate (see messaging/cache/CacheService);
+// this bean also needs a DataSource, which reactive (Mongo) apps don't have.
+@ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = false)
 public class HealthMonitoringService implements HealthIndicator {
 
   private final DataSource dataSource;

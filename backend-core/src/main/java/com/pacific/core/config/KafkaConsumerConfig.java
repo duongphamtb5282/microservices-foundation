@@ -6,19 +6,18 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.kafka.listener.CommonErrorHandler;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 
-import com.pacific.core.messaging.CorrelationAwareErrorHandler;
-
 @Configuration
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(ConcurrentKafkaListenerContainerFactory.class)
 public class KafkaConsumerConfig {
 
   @Value("${spring.kafka.bootstrap-servers}")
@@ -29,6 +28,9 @@ public class KafkaConsumerConfig {
 
   @Value("${spring.kafka.consumer.type-mappings:}")
   private String typeMappings;
+
+  @Value("${spring.kafka.consumer.value-default-type:}")
+  private String valueDefaultType;
 
   @Bean
   public ConsumerFactory<String, Object> consumerFactory() {
@@ -57,6 +59,18 @@ public class KafkaConsumerConfig {
       props.put(JsonDeserializer.TYPE_MAPPINGS, typeMappings);
     }
 
+    // Per-service fallback target class. Records written before 2026-08-25 carry no __TypeId__
+    // header (JsonSerializer.ADD_TYPE_INFO_HEADERS was disabled in core's producer config), so the
+    // JsonDeserializer could not pick a class and every such record failed with "Error
+    // deserializing VALUE ... no type information in headers" — an endless error-handler loop that
+    // pinned the partition at the first offset. A default type lets those headerless records decode
+    // (they are valid JSON of the service's only event type, e.g. UserCreatedEvent on user-events)
+    // and doubles as a poison-pill safety net. Services opt in via
+    // spring.kafka.consumer.value-default-type; when a __TypeId__ header IS present it still wins.
+    if (valueDefaultType != null && !valueDefaultType.trim().isEmpty()) {
+      props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, valueDefaultType);
+    }
+
     // Security configuration (if needed)
     // props.put(SaslConfigs.SASL_MECHANISM_CONFIG, "PLAIN");
     // props.put(SaslConfigs.SASL_JAAS_CONFIG, "...");
@@ -66,16 +80,13 @@ public class KafkaConsumerConfig {
 
   @Bean
   public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory(
-      CorrelationAwareErrorHandler errorHandler) {
+      CommonErrorHandler errorHandler) {
     ConcurrentKafkaListenerContainerFactory<String, Object> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
     factory.setConsumerFactory(consumerFactory());
     factory.setConcurrency(3); // Number of consumer threads
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
-
-    // Error handling - inject the error handler bean
     factory.setCommonErrorHandler(errorHandler);
-
     return factory;
   }
 }

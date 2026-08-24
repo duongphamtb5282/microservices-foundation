@@ -73,15 +73,11 @@ spring:
 auth-service:
   security:
     authentication:
-      mode: ${AUTH_MODE:keycloak}  # Use Keycloak for production
-      jwt:
-        enabled: false  # Disable custom JWT in production
       keycloak:
-        enabled: true
         server-url: ${KEYCLOAK_URL:https://keycloak.auth-service.company.com}
         realm: ${KEYCLOAK_REALM:auth-service-prod}
         client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
-        client-secret: ${KEYCLOAK_CLIENT_SECRET}  # Must be set in production
+        credentials-secret: ${KEYCLOAK_CLIENT_SECRET}  # Must be set in production
         ssl-required: ${KEYCLOAK_SSL_REQUIRED:external}
         public-client: false
         verify-token-audience: true

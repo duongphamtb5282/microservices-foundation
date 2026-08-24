@@ -6,12 +6,13 @@ import com.pacific.auth.modules.authentication.client.dto.KeycloakRoleRepresenta
 import com.pacific.auth.modules.authentication.client.dto.KeycloakTokenResponse;
 import com.pacific.auth.modules.authentication.client.dto.KeycloakUserRepresentation;
 import com.pacific.core.messaging.circuitbreaker.CircuitBreakerService;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 /**
@@ -20,10 +21,6 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-// S-06: same canonical key family as KeycloakProperties and the JWT validation stack
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true")
 public class KeycloakService {
 
   private final KeycloakTokenClient tokenClient;
@@ -52,7 +49,15 @@ public class KeycloakService {
     log.info("Logging in user: {}", username);
     return keycloakCall(
         "login",
-        () -> tokenClient.getToken(realm, clientId, clientSecret, username, password, "password"));
+        () ->
+            tokenClient.getToken(
+                realm,
+                form(
+                    "client_id", clientId,
+                    "client_secret", clientSecret,
+                    "username", username,
+                    "password", password,
+                    "grant_type", "password")));
   }
 
   /** Refresh access token */
@@ -62,7 +67,12 @@ public class KeycloakService {
         "refreshToken",
         () ->
             tokenClient.refreshToken(
-                realm, clientId, clientSecret, refreshToken, "refresh_token"));
+                realm,
+                form(
+                    "client_id", clientId,
+                    "client_secret", clientSecret,
+                    "refresh_token", refreshToken,
+                    "grant_type", "refresh_token")));
   }
 
   /** Logout user */
@@ -71,7 +81,12 @@ public class KeycloakService {
     keycloakCall(
         "logout",
         () -> {
-          tokenClient.logout(realm, clientId, clientSecret, refreshToken);
+          tokenClient.logout(
+              realm,
+              form(
+                  "client_id", clientId,
+                  "client_secret", clientSecret,
+                  "refresh_token", refreshToken));
           return null;
         });
   }
@@ -82,7 +97,12 @@ public class KeycloakService {
     keycloakCall(
         "revokeToken",
         () -> {
-          tokenClient.revokeToken(realm, clientId, clientSecret, token);
+          tokenClient.revokeToken(
+              realm,
+              form(
+                  "client_id", clientId,
+                  "client_secret", clientSecret,
+                  "token", token));
           return null;
         });
   }
@@ -210,6 +230,15 @@ public class KeycloakService {
     return circuitBreakerService.execute("keycloak", call);
   }
 
+  /** Build a form-urlencoded body map for the token endpoints (key, value, key, value, ...). */
+  private static Map<String, String> form(String... keyValues) {
+    Map<String, String> form = new LinkedHashMap<>();
+    for (int i = 0; i < keyValues.length; i += 2) {
+      form.put(keyValues[i], keyValues[i + 1]);
+    }
+    return form;
+  }
+
   /** Get admin token with caching In production, use Spring Cache or Redis */
   private String getAdminToken() {
     // Check if cached token is still valid
@@ -220,7 +249,12 @@ public class KeycloakService {
     // Get new admin token using service account
     log.info("Getting new admin token");
     KeycloakTokenResponse response =
-        tokenClient.getServiceAccountToken(realm, clientId, clientSecret, "client_credentials");
+        tokenClient.getServiceAccountToken(
+            realm,
+            form(
+                "client_id", clientId,
+                "client_secret", clientSecret,
+                "grant_type", "client_credentials"));
 
     cachedAdminToken = response.getAccessToken();
     // Set expiry time to 90% of actual expiry (add buffer)

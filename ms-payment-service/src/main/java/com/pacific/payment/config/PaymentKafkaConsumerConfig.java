@@ -17,10 +17,19 @@ import org.springframework.kafka.listener.ContainerProperties;
  * Kafka consumer configuration. The order-events topic carries both ORDER_CREATED and
  * ORDER_CANCELLED payloads (ADR-0007), so the value deserializer is a plain String and
  * {@code OrderEventConsumer} dispatches on the eventType field.
+ *
+ * <p>Named {@code PaymentKafkaConsumerConfig} (not {@code KafkaConsumerConfig}) to avoid a bean-name
+ * clash with {@code com.pacific.core.config.KafkaConsumerConfig}, which this service's
+ * {@code @ComponentScan("com.pacific.core")} also pulls in — two same-named {@code @Configuration}
+ * classes fail startup with a ConflictingBeanDefinitionException. The beans are also renamed
+ * (payment* prefix) so they coexist with core's generic {@code consumerFactory} /
+ * {@code kafkaListenerContainerFactory}: core's Object-typed factory serves
+ * {@code CorrelationAwareConsumer}, this String-typed factory serves {@code OrderEventConsumer}
+ * (which binds via {@code containerFactory = "paymentKafkaListenerContainerFactory"}).
  */
 @Configuration
 @EnableKafka
-public class KafkaConsumerConfig {
+public class PaymentKafkaConsumerConfig {
 
   @Value("${spring.kafka.bootstrap-servers}")
   private String bootstrapServers;
@@ -29,7 +38,7 @@ public class KafkaConsumerConfig {
   private String groupId;
 
   @Bean
-  public ConsumerFactory<String, String> consumerFactory() {
+  public ConsumerFactory<String, String> paymentConsumerFactory() {
     Map<String, Object> config = new HashMap<>();
     config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
     config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
@@ -42,10 +51,11 @@ public class KafkaConsumerConfig {
   }
 
   @Bean
-  public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+  public ConcurrentKafkaListenerContainerFactory<String, String>
+      paymentKafkaListenerContainerFactory() {
     ConcurrentKafkaListenerContainerFactory<String, String> factory =
         new ConcurrentKafkaListenerContainerFactory<>();
-    factory.setConsumerFactory(consumerFactory());
+    factory.setConsumerFactory(paymentConsumerFactory());
     factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
     factory.setConcurrency(3); // Number of consumer threads
     return factory;

@@ -13,8 +13,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:orders_db}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:auth_user}
+    password: ${DB_PASSWORD:auth_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       # ADR-0009: pool as the deliberate concurrency limit (pool ≥ peak concurrency × query/request
@@ -100,7 +100,11 @@ kafka:
 
 # Cache Configuration (backend-core caching)
 cache:
-  enabled: true # Enable/disable caching infrastructure
+  # Core's cache stack (CacheConfig + cache services) stays DISABLED here: order-service provides
+  # its own cache stack (config/OrderCacheConfig with per-cache TTLs). Enabling core's would
+  # register a second CacheManager/RedisTemplate and silently overwrite order's redisCacheManager
+  # bean (same bean name in both configs).
+  enabled: false # Enable/disable caching infrastructure
   metrics-enabled: true
 
 # Order Service Configuration
@@ -160,8 +164,9 @@ logging:
     com.pacific.order: DEBUG
     com.pacific.core: DEBUG
     org.springframework.kafka: INFO
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    # INFO (was DEBUG): the outbox relay's 500ms poll made SQL DEBUG a perpetual console flood.
+    org.hibernate.SQL: INFO
+    org.hibernate.type.descriptor.sql.BasicBinder: INFO
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
     file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

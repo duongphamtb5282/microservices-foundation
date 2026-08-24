@@ -31,7 +31,10 @@ public class KeycloakJwksService {
 
   private static final Duration FETCH_TIMEOUT = Duration.ofSeconds(5);
 
-  @Value("${GATEWAY_JWKS_URL:http://localhost:8080/realms/master/protocol/openid-connect/certs}")
+  // NOTE: the default realm here must match the token-issuing realm (auth-service). The YAML
+  // block at gateway.keycloak (application.yml) documents this same value but is not bound —
+  // the annotation-level default is the live config when GATEWAY_JWKS_URL is unset.
+  @Value("${GATEWAY_JWKS_URL:http://localhost:8080/realms/auth-service/protocol/openid-connect/certs}")
   private String jwksUrl;
 
   private final WebClient webClient;

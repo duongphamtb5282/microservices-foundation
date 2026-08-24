@@ -2,9 +2,11 @@ package com.pacific.auth.modules.role.repository;
 
 import com.pacific.auth.modules.role.entity.Role;
 import com.pacific.auth.modules.role.entity.RoleType;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +15,16 @@ import org.springframework.stereotype.Repository;
 /** Repository for Role entity operations. */
 @Repository
 public interface RoleRepository extends JpaRepository<Role, UUID> {
+
+  /**
+   * Find all roles with their permissions initialized. The inherited findAll() leaves the lazy
+   * permissions collection uninitialized; with open-in-view disabled (ADR-0009) the session
+   * closes before Jackson serializes the response → LazyInitializationException ("could not
+   * initialize proxy - no Session"). GET /api/roles hit this exactly.
+   */
+  @Override
+  @EntityGraph(attributePaths = "permissions")
+  List<Role> findAll();
 
   /**
    * Find role by name

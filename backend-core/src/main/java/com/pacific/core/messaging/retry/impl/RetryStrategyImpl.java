@@ -9,7 +9,8 @@ import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.error.DeadLetterQueue;
@@ -24,7 +25,11 @@ import com.pacific.core.messaging.retry.RetryStrategy;
 /** Implementation of retry strategy with exponential backoff and error classification. */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+// Kafka-consumer retry machinery (used by BaseEventConsumer subclasses): register only where
+// spring-kafka is on the classpath. Its ErrorClassifier/DeadLetterQueue implementations are
+// themselves @ConditionalOnClass(kafka) — the gate must match or construction fails in the
+// gateway, which has no kafka.
+@ConditionalOnClass(KafkaTemplate.class)
 @RequiredArgsConstructor
 public class RetryStrategyImpl implements RetryStrategy {
 

@@ -11,7 +11,6 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
@@ -22,10 +21,6 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @Slf4j
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
 public class KeycloakTokenValidationService extends AbstractJwtValidationService
     implements JwtTokenValidationService {
 
@@ -67,8 +62,25 @@ public class KeycloakTokenValidationService extends AbstractJwtValidationService
 
     // Check audience only if configured to do so
     if (keycloakProperties.isVerifyTokenAudience()) {
-      if (jwt.getAudience() == null || jwt.getAudience().isEmpty()) {
-        throw new InvalidTokenException("Token missing audience");
+      List<String> audience = jwt.getAudience();
+      if (audience == null || audience.isEmpty()) {
+        // This realm's access tokens carry no `aud` claim (only azp) — Keycloak emits aud on
+        // access tokens only when an audience client scope is configured. Fall back to azp
+        // (authorized party), which Keycloak always sets to the client that performed the grant;
+        // for a single-client auth service that is the same client-binding guarantee as an
+        // audience check.
+        String azp = jwt.getClaimAsString("azp");
+        if (azp == null || !azp.equals(keycloakProperties.getClientId())) {
+          throw new InvalidTokenException(
+              "Token audience (azp) does not match client " + keycloakProperties.getClientId() + ": " + azp);
+        }
+        log.debug("Token has no aud claim; verified azp client binding: {}", azp);
+      } else if (!audience.contains(keycloakProperties.getClientId())) {
+        throw new InvalidTokenException(
+            "Token audience does not match client "
+                + keycloakProperties.getClientId()
+                + ": "
+                + audience);
       }
     } else {
       log.debug("Skipping audience verification (verify-token-audience=false)");

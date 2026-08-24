@@ -14,19 +14,27 @@ import javax.crypto.spec.SecretKeySpec;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 /**
  * Service for security operations including encryption, API key validation, and service-to-service
  * authentication.
+ *
+ * <p>Gated on spring-security-core ({@code @ConditionalOnClass}): the hasPermission lambda's
+ * parameter type (GrantedAuthority) is resolved when the class is introspected, so consumers
+ * without spring-security-core crash at bean creation (NoClassDefFoundError: GrantedAuthority).
+ * Consumers that DO need the bean (ms-order-service's EncryptedString/DataEncryptionService,
+ * api-gateway's ApiKeyAuthenticationFilter) declare spring-security-core; consumers without any
+ * security stack (ms-payment) skip the bean entirely.
  */
 @Service
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
+@ConditionalOnClass({Authentication.class, GrantedAuthority.class})
 public class SecurityService {
 
   private static final String ALGORITHM = "AES";

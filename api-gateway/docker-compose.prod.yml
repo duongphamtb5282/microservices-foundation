@@ -419,7 +419,7 @@ services:
       dockerfile: Dockerfile.prod
     container_name: api-gateway-prod
     ports:
-      - "8080:8080"
+      - "8088:8088" # Keycloak owns 8080 (auth-service/docker-compose.yml); gateway moved to 8088
       - "8443:8443" # HTTPS
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -443,7 +443,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://localhost:8080/actuator/health",
+          "http://localhost:8088/actuator/health",
         ]
       interval: 30s
       timeout: 10s
@@ -534,7 +534,7 @@ networks:
 
 # Health check improvements
 # healthcheck:
-#   test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+#   test: ["CMD", "curl", "-f", "http://localhost:8088/actuator/health"]
 #   interval: 30s
 #   timeout: 10s
 #   retries: 5

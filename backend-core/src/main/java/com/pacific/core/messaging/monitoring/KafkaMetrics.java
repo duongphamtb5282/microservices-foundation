@@ -6,15 +6,19 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
 
 /** Metrics collector for Kafka wrapper operations. Uses Micrometer for vendor-neutral metrics. */
 @Component
+// Kafka-wrapper metrics: register only where spring-kafka is on the classpath (classpath is the
+// gate, no kafka.enabled property). KafkaWrapperProperties is registered by the equally-gated
+// KafkaWrapperConfiguration, so the two must share the gate.
+@ConditionalOnClass(KafkaTemplate.class)
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaMetrics {
 
   private final MeterRegistry meterRegistry;

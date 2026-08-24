@@ -7,7 +7,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.Message;
@@ -26,7 +26,7 @@ import com.pacific.core.messaging.retry.RetryContext;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+@ConditionalOnClass(KafkaTemplate.class)
 @RequiredArgsConstructor
 public class KafkaDlqHandler implements DeadLetterQueue {
 

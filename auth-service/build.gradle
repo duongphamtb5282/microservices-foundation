@@ -124,9 +124,6 @@ dependencies {
 
     // Resilience4j for circuit breaker functionality
     implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
-    
-    // Liquibase for database migrations
-    implementation 'org.liquibase:liquibase-core:4.27.0'
 
     // Feign Form Encoder for URL-encoded requests
     implementation 'io.github.openfeign.form:feign-form:3.8.0'

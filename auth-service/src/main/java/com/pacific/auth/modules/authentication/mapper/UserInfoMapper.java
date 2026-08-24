@@ -3,7 +3,6 @@ package com.pacific.auth.modules.authentication.mapper;
 import com.pacific.auth.modules.authentication.security.jwt.common.JwtValidationResult;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,27 +28,25 @@ public class UserInfoMapper {
     return userInfo;
   }
 
-  /** Custom JWT authentication -> user info response (GET /api/auth/me). */
-  public Map<String, Object> toCustomJwtUserInfo(
-      Authentication authentication, String tokenType) {
-    Map<String, Object> userInfo = new HashMap<>();
-    userInfo.put("username", authentication.getName());
-    userInfo.put(
-        "authorities",
-        authentication.getAuthorities().stream().map(auth -> auth.getAuthority()).toList());
-    userInfo.put("tokenType", tokenType);
-    userInfo.put("isCustomJwt", true);
-    userInfo.put("isKeycloakJwt", false);
-    return userInfo;
-  }
-
-  /** Token validation result -> validate-token response (POST /api/auth/validate). */
+  /**
+   * Token validation result -> validate-token response (POST /api/auth/validate).
+   *
+   * <p>Contract with ms-order's AuthServiceClient (ValidateTokenResponse DTO): the response must
+   * carry {@code valid}, {@code userId}, {@code username}, {@code message}. {@code username} is
+   * JwtValidationResult.getUsername() = the JWT {@code sub} (the Keycloak user UUID); the actual
+   * login name is the {@code preferred_username} claim. userId and the display username are
+   * mapped explicitly so order can build CreateOrderCommand without nulls.
+   */
   public Map<String, Object> toTokenValidationResponse(JwtValidationResult validation) {
     Map<String, Object> result = new HashMap<>();
     result.put("valid", validation.isValid());
 
     if (validation.isValid()) {
-      result.put("username", validation.getUsername());
+      // Keycloak access tokens always carry sub (user UUID) and preferred_username (login name).
+      result.put("userId", validation.getClaimAsString("sub"));
+      String displayUsername = validation.getClaimAsString("preferred_username");
+      result.put(
+          "username", displayUsername != null ? displayUsername : validation.getUsername());
       result.put("email", validation.getEmail());
       result.put("firstName", validation.getFirstName());
       result.put("lastName", validation.getLastName());
@@ -59,6 +56,7 @@ public class UserInfoMapper {
       result.put("expiresAt", validation.getExpiresAt());
     } else {
       result.put("error", validation.getErrorMessage());
+      result.put("message", validation.getErrorMessage());
     }
     return result;
   }

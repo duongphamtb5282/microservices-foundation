@@ -13,8 +13,8 @@ spring:
 
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:payments_db}
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USERNAME:auth_user}
+    password: ${DB_PASSWORD:auth_password}
     driver-class-name: org.postgresql.Driver
     hikari:
       # ADR-0009: pool as the deliberate concurrency limit (pool ≥ peak concurrency × query/request
@@ -73,7 +73,12 @@ kafka:
 
 # Cache Configuration (backend-core caching)
 cache:
-  enabled: true # Enable/disable caching infrastructure
+  # Core's cache stack stays DISABLED here: ms-payment has NO Redis on its classpath (see "Redis:
+  # intentionally NOT configured" above, ADR-0009 item 4). With enabled:true, CacheConfig's
+  # Redis-typed factory methods would be registered, and Spring's condition evaluation would crash
+  # introspecting them (NoClassDefFoundError: RedisSerializer). No payment code injects the cache
+  # services (verified), so disabling the stack is lossless.
+  enabled: false # Enable/disable caching infrastructure
   metrics-enabled: true
 
 # Payment Service Configuration

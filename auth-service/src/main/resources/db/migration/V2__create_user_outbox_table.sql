@@ -1,9 +1,7 @@
---liquibase formatted sql
+-- V2: transactional outbox table (ADR-0006), idempotent (IF NOT EXISTS) —
+-- user events are written here in the SAME DB transaction as the user, then published to Kafka
+-- by UserOutboxRelay.
 
---changeset auth:create-user-outbox-table runOnChange:false
--- Transactional outbox table (ADR-0006)
--- User events are written here in the SAME DB transaction as the user,
--- then published to Kafka by UserOutboxRelay.
 CREATE TABLE IF NOT EXISTS auth.user_outbox (
     id VARCHAR(36) PRIMARY KEY,
     event_id VARCHAR(36) NOT NULL UNIQUE,
@@ -16,12 +14,10 @@ CREATE TABLE IF NOT EXISTS auth.user_outbox (
     published_at TIMESTAMP
 );
 
---changeset auth:create-user-outbox-index runOnChange:false
 -- Relay polling index (ADR-0006)
 CREATE INDEX IF NOT EXISTS idx_user_outbox_status_created ON auth.user_outbox(status, created_at);
 
---changeset auth:comment-user-outbox-table runOnChange:false
--- Add comments
+-- Column comments
 COMMENT ON TABLE auth.user_outbox IS 'Transactional outbox for user events (ADR-0006)';
 COMMENT ON COLUMN auth.user_outbox.id IS 'Outbox row identifier (UUID)';
 COMMENT ON COLUMN auth.user_outbox.event_id IS 'Unique event identifier (user ID)';

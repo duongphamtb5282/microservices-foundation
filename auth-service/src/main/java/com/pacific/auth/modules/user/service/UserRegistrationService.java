@@ -1,83 +1,90 @@
 package com.pacific.auth.modules.user.service;
 
-import com.pacific.auth.common.exception.UserAlreadyExistsException;
+import com.pacific.auth.modules.authentication.client.dto.KeycloakCredentialRepresentation;
+import com.pacific.auth.modules.authentication.client.dto.KeycloakUserRepresentation;
+import com.pacific.auth.modules.authentication.service.KeycloakService;
 import com.pacific.auth.modules.outbox.service.UserOutboxService;
-import com.pacific.auth.modules.role.entity.Role;
-import com.pacific.auth.modules.role.entity.RoleType;
-import com.pacific.auth.modules.role.service.RoleService;
-import com.pacific.auth.modules.user.entity.User;
-import com.pacific.auth.modules.user.repository.UserRepository;
-import com.pacific.core.audit.Audit;
-import com.pacific.core.audit.AuditAction;
+import com.pacific.auth.modules.user.dto.request.RegistrationRequestDto;
+import com.pacific.auth.modules.user.dto.response.RegistrationResponseDto;
+import com.pacific.core.filter.CorrelationIdFilter;
 import com.pacific.shared.events.UserCreatedEvent;
-import com.pacific.shared.utils.ValidationUtils;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * User registration — thin Keycloak proxy. The local DB user store was removed with the dual-auth
+ * stack (S-06): registering creates the user in Keycloak, which is the single user store, and
+ * Keycloak's realm default roles apply on account creation. The transactional outbox write is kept
+ * (ADR-0006): each successful Keycloak user creation enqueues a UserCreatedEvent so downstream
+ * services (ms-customer's UserEventConsumer) still provision customers — the event ledger is not a
+ * user store.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class UserRegistrationService {
 
-  private final UserRepository userRepository;
-  private final PasswordEncoder passwordEncoder;
-  private final RoleService roleService;
+  private final KeycloakService keycloakService;
   private final UserOutboxService userOutboxService;
 
-  @Transactional(rollbackFor = Exception.class)
-  @Audit(entityType = "User", action = AuditAction.CREATED, details = "User registration completed")
-  public User registerUser(User user) {
-    // Validate input using shared utilities
-    ValidationUtils.validateEmail(user.getEmail());
-    ValidationUtils.validateUsername(user.getUserName());
-    ValidationUtils.validatePassword(user.getPassword());
+  /** Register a new user in Keycloak (admin API), then enqueue the UserCreatedEvent (ADR-0006). */
+  public RegistrationResponseDto registerUser(RegistrationRequestDto request) {
+    log.info("🚀 Registering user in Keycloak: {}", request.getUsername());
 
-    // Check for duplicates
-    boolean emailExists = userRepository.existsByEmail(user.getEmail());
-    boolean usernameExists = userRepository.existsByUserName(user.getUserName());
+    KeycloakUserRepresentation user = new KeycloakUserRepresentation();
+    user.setUsername(request.getUsername());
+    user.setEmail(request.getEmail());
+    user.setFirstName(request.getFirstName());
+    user.setLastName(request.getLastName());
+    user.setEnabled(true);
+    user.setEmailVerified(false);
 
-    if (emailExists && usernameExists) {
-      throw UserAlreadyExistsException.forBoth(user.getEmail(), user.getUserName());
-    } else if (emailExists) {
-      throw UserAlreadyExistsException.forEmail(user.getEmail());
-    } else if (usernameExists) {
-      throw UserAlreadyExistsException.forUsername(user.getUserName());
+    KeycloakCredentialRepresentation credential = new KeycloakCredentialRepresentation();
+    credential.setType("password");
+    credential.setValue(request.getPassword());
+    credential.setTemporary(false);
+    user.setCredentials(List.of(credential));
+
+    Map<String, List<String>> attributes = new HashMap<>();
+    if (request.getPhoneNumber() != null) {
+      attributes.put("phoneNumber", List.of(request.getPhoneNumber()));
+    }
+    if (request.getAddress() != null) {
+      attributes.put("address", List.of(request.getAddress()));
+    }
+    if (!attributes.isEmpty()) {
+      user.setAttributes(attributes);
     }
 
-    // Create new User object with audit fields set
-    User newUser =
-        new User(user.getUserName(), user.getEmail(), passwordEncoder.encode(user.getPassword()));
+    keycloakService.createUser(user);
+    log.info("✅ User registered in Keycloak: {}", request.getUsername());
 
-    // Copy additional fields from input
-    newUser.setFirstName(user.getFirstName());
-    newUser.setLastName(user.getLastName());
-    newUser.setPhoneNumber(user.getPhoneNumber());
-    newUser.setAddress(user.getAddress());
+    // Outbox enqueue (ADR-0006) — only after Keycloak accepts the user, so a failed registration
+    // never emits an event. userId is the Keycloak username: createUser returns void (the admin
+    // API's Location header is discarded), and the consumer treats the id as opaque, deduplicating
+    // on email.
+    UserCreatedEvent event =
+        UserCreatedEvent.builder()
+            .userId(request.getUsername())
+            .username(request.getUsername())
+            .email(request.getEmail())
+            .firstName(request.getFirstName())
+            .lastName(request.getLastName())
+            .phone(request.getPhoneNumber())
+            .build();
+    // Chain the request correlation id (X-Correlation-ID → MDC via CorrelationIdFilter) so the
+    // consumer's trace links back; falls back to the event's fresh UUID.
+    String correlationId = MDC.get(CorrelationIdFilter.CORRELATION_ID_MDC_KEY);
+    if (correlationId != null && !correlationId.isBlank() && !"unknown".equals(correlationId)) {
+      event = event.withCorrelationId(correlationId);
+    }
+    userOutboxService.record(event);
 
-    // Assign default USER role
-    Role userRole = roleService.getOrCreateRole(RoleType.USER);
-    newUser.setRoles(Set.of(userRole));
-
-    log.info("Assigning default USER role to new user: {}", newUser.getUserName());
-    log.info("User roles set: {}", newUser.getRoles());
-    log.info("About to save user to database: {}", newUser.getUserName());
-
-    log.info("About to call userRepository.save() for user: {}", newUser.getUserName());
-    User savedUser = userRepository.save(newUser);
-    log.info("✅ User successfully saved to database: {}", savedUser.getUserName());
-
-    // Record UserCreatedEvent into the transactional outbox in the SAME transaction (ADR-0006).
-    // The relay publishes to Kafka after commit — a Kafka outage no longer blocks registration
-    // nor silently drops the event (previously published in-tx with swallowed failures).
-    UserCreatedEvent userCreatedEvent =
-        new UserCreatedEvent(
-            savedUser.getId().toString(), savedUser.getUserName(), savedUser.getEmail());
-    userOutboxService.record(userCreatedEvent);
-
-    return savedUser;
+    return new RegistrationResponseDto(request.getUsername(), request.getEmail());
   }
 }

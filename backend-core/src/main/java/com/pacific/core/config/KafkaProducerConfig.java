@@ -6,7 +6,7 @@ import java.util.Map;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
@@ -17,7 +17,7 @@ import org.springframework.kafka.support.serializer.JsonSerializer;
 import com.pacific.core.messaging.KafkaCorrelationInterceptor;
 
 @Configuration
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnClass(KafkaTemplate.class)
 public class KafkaProducerConfig {
 
   @Value("${spring.kafka.bootstrap-servers}")
@@ -43,7 +43,12 @@ public class KafkaProducerConfig {
     configProps.put(ProducerConfig.BATCH_SIZE_CONFIG, 16384); // 16KB
     configProps.put(ProducerConfig.LINGER_MS_CONFIG, 5);
     configProps.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
-    configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+    // Type-info headers stay ON (JsonSerializer default): the consumers' JsonDeserializer needs the
+    // __TypeId__ header to pick the target class — disabling it made every record fail with
+    // "Error deserializing VALUE ... no type information in headers and no default type provided"
+    // (e.g. ms-customer on user-events). The type mappings below merely shorten the header value;
+    // producer and consumer must share the same mapping.
+    // configProps.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false); // DO NOT disable
 
     // Configure type mappings if provided (removes hardcoded shared library dependency)
     if (typeMappings != null && !typeMappings.trim().isEmpty()) {

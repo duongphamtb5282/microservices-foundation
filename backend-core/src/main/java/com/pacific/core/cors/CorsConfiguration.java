@@ -1,60 +1,127 @@
 package com.pacific.core.cors;
 
-import java.io.IOException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 
-import jakarta.servlet.Filter;
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.FilterConfig;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.ServletRequest;
-import jakarta.servlet.ServletResponse;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
-import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 
 /**
- * Enhanced CORS filter with configurable settings. Provides flexible CORS configuration for
- * microservices. Now uses shared CORS configuration to eliminate duplication.
+ * Register a servlet `Filter` for CORS only when the Servlet API is present. This avoids
+ * compile-time references to `jakarta.servlet` so the configuration class can be loaded in reactive
+ * (WebFlux) applications that don't have the servlet API on the classpath.
  */
-@Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
+@Configuration
+@ConditionalOnClass(name = "jakarta.servlet.Filter")
 @Slf4j
 @RequiredArgsConstructor
-public class CorsConfiguration implements Filter {
+public class CorsConfiguration {
 
   private final CorsConfigurationHelper corsConfigurationHelper;
 
-  @Override
-  public void init(FilterConfig filterConfig) throws ServletException {
-    log.info("🔧 Initializing CORS filter with shared configuration");
-  }
+  @Bean
+  public Object corsFilterRegistration() {
+    try {
+      ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
-  @Override
-  public void doFilter(
-      ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain)
-      throws IOException, ServletException {
+      Class<?> filterClass = Class.forName("jakarta.servlet.Filter", false, cl);
+      Class<?> servletRequestClass = Class.forName("jakarta.servlet.ServletRequest", false, cl);
+      Class<?> servletResponseClass = Class.forName("jakarta.servlet.ServletResponse", false, cl);
+      Class<?> filterChainClass = Class.forName("jakarta.servlet.FilterChain", false, cl);
+      Class<?> httpServletRequestClass =
+          Class.forName("jakarta.servlet.http.HttpServletRequest", false, cl);
+      Class<?> httpServletResponseClass =
+          Class.forName("jakarta.servlet.http.HttpServletResponse", false, cl);
 
-    HttpServletRequest request = (HttpServletRequest) servletRequest;
-    HttpServletResponse response = (HttpServletResponse) servletResponse;
+      // Create a dynamic Filter implementation that delegates to CorsConfigurationHelper
+      Object filterProxy =
+          Proxy.newProxyInstance(
+              filterClass.getClassLoader(),
+              new Class<?>[] {filterClass},
+              (proxy, method, args) -> {
+                String name = method.getName();
+                if ("init".equals(name)) {
+                  log.info("🔧 Initializing CORS filter with shared configuration");
+                  return null;
+                }
+                if ("destroy".equals(name)) {
+                  log.info("🔧 CORS filter destroyed");
+                  return null;
+                }
+                if ("doFilter".equals(name) && args != null && args.length == 3) {
+                  Object req = args[0];
+                  Object res = args[1];
+                  Object chain = args[2];
 
-    // Apply CORS headers using shared configuration
-    corsConfigurationHelper.applyCorsHeaders(request, response);
+                  // applyCorsHeaders(HttpServletRequest, HttpServletResponse)
+                  Method apply =
+                      corsConfigurationHelper
+                          .getClass()
+                          .getMethod(
+                              "applyCorsHeaders",
+                              httpServletRequestClass,
+                              httpServletResponseClass);
+                  apply.invoke(corsConfigurationHelper, req, res);
 
-    // Handle preflight requests
-    if (corsConfigurationHelper.isPreflightRequest(request)) {
-      corsConfigurationHelper.handlePreflightRequest(response);
-      return;
+                  // if preflight: handlePreflightRequest(HttpServletResponse) and return
+                  Method isPre =
+                      corsConfigurationHelper
+                          .getClass()
+                          .getMethod("isPreflightRequest", httpServletRequestClass);
+                  Boolean pre = (Boolean) isPre.invoke(corsConfigurationHelper, req);
+                  if (pre != null && pre) {
+                    Method handle =
+                        corsConfigurationHelper
+                            .getClass()
+                            .getMethod("handlePreflightRequest", httpServletResponseClass);
+                    handle.invoke(corsConfigurationHelper, res);
+                    return null;
+                  }
+
+                  // otherwise continue filter chain: filterChain.doFilter(req, res)
+                  Method doFilter =
+                      chain
+                          .getClass()
+                          .getMethod("doFilter", servletRequestClass, servletResponseClass);
+                  doFilter.invoke(chain, req, res);
+                  return null;
+                }
+                // InvocationHandler contract: hashCode/equals/toString must return typed values,
+                // not null — containers and Spring call them on arbitrary beans (same fix as
+                // CorrelationConfig.correlationMetricsConfigurer).
+                if ("hashCode".equals(name)) {
+                  return System.identityHashCode(proxy);
+                }
+                if ("equals".equals(name)) {
+                  return proxy == args[0];
+                }
+                if ("toString".equals(name)) {
+                  return "corsFilterProxy@" + System.identityHashCode(proxy);
+                }
+                return null;
+              });
+
+      // Try to register via FilterRegistrationBean if available so we can set order
+      try {
+        Class<?> frbClass =
+            Class.forName("org.springframework.boot.web.servlet.FilterRegistrationBean", false, cl);
+        Object frb = frbClass.getConstructor().newInstance();
+        Method setFilter = frbClass.getMethod("setFilter", filterClass);
+        setFilter.invoke(frb, filterProxy);
+        Method setOrder = frbClass.getMethod("setOrder", int.class);
+        setOrder.invoke(frb, Ordered.HIGHEST_PRECEDENCE);
+        return frb;
+      } catch (ClassNotFoundException cnfe) {
+        // FilterRegistrationBean not available; return raw filter proxy instead
+        return filterProxy;
+      }
+
+    } catch (Exception e) {
+      throw new IllegalStateException("Failed to register servlet CORS filter", e);
     }
-
-    filterChain.doFilter(servletRequest, servletResponse);
-  }
-
-  @Override
-  public void destroy() {
-    log.info("🔧 CORS filter destroyed");
   }
 }

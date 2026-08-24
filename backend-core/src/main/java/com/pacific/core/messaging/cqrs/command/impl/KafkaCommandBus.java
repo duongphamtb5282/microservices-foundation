@@ -8,7 +8,8 @@ import java.util.concurrent.Executor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.config.KafkaWrapperProperties;
@@ -25,7 +26,9 @@ import com.pacific.core.messaging.cqrs.event.EventPublisher;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
+// Kafka-backed CQRS: register only where spring-kafka is on the classpath (no kafka.enabled
+// property gate — the classpath is the gate). Same sentinel as KafkaEventPublisher.
+@ConditionalOnClass(KafkaTemplate.class)
 @RequiredArgsConstructor
 public class KafkaCommandBus implements CommandBus {
 

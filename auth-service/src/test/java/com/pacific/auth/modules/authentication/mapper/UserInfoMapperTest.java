@@ -9,9 +9,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 class UserInfoMapperTest {
 
@@ -46,24 +43,6 @@ class UserInfoMapperTest {
         .containsEntry("issuedAt", issuedAt)
         .containsEntry("expiresAt", expiresAt)
         .containsEntry("tokenType", "KEYCLOAK");
-  }
-
-  @Test
-  void toCustomJwtUserInfo_mapsAuthentication() {
-    Authentication authentication =
-        new UsernamePasswordAuthenticationToken(
-            "custom.user",
-            null,
-            List.of(new SimpleGrantedAuthority("ROLE_USER"), new SimpleGrantedAuthority("ROLE_ADMIN")));
-
-    Map<String, Object> result = mapper.toCustomJwtUserInfo(authentication, "CUSTOM");
-
-    assertThat(result)
-        .containsEntry("username", "custom.user")
-        .containsEntry("authorities", List.of("ROLE_USER", "ROLE_ADMIN"))
-        .containsEntry("tokenType", "CUSTOM")
-        .containsEntry("isCustomJwt", true)
-        .containsEntry("isKeycloakJwt", false);
   }
 
   @Test

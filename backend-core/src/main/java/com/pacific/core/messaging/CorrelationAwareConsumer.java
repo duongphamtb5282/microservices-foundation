@@ -6,27 +6,27 @@ import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.MDC;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnProperty(
-    name = "kafka.consumers.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
+@ConditionalOnClass(KafkaListener.class)
 @Slf4j
 public class CorrelationAwareConsumer {
 
   private static final String CORRELATION_ID_HEADER_KEY = "correlationId";
   private static final String CORRELATION_ID_MDC_KEY = "correlationId";
 
+  // Errors are handled by the container-level CommonErrorHandler (KafkaConsumerConfig wires
+  // CorrelationAwareErrorHandler via setCommonErrorHandler). The @KafkaListener errorHandler
+  // attribute must NOT be used here: it resolves a KafkaListenerErrorHandler bean by name, and
+  // CorrelationAwareErrorHandler implements CommonErrorHandler — a different extension point.
   @KafkaListener(
       topics = {"customer-events", "order-events", "payment-events"},
       groupId = "event-processors",
-      containerFactory = "kafkaListenerContainerFactory",
-      errorHandler = "correlationAwareErrorHandler")
+      containerFactory = "kafkaListenerContainerFactory")
   public void handleEvents(ConsumerRecord<String, Object> record, Acknowledgment acknowledgment) {
     // Extract correlation ID from Kafka headers (robust extraction)
     String correlationId = extractCorrelationIdFromRecord(record);

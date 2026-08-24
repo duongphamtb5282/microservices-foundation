@@ -4,7 +4,6 @@ import java.time.Duration;
 import java.util.Random;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.pacific.core.messaging.retry.BackoffStrategy;
@@ -20,7 +19,6 @@ import com.pacific.core.messaging.retry.RetryPolicy;
  */
 @Slf4j
 @Component
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class ExponentialBackoffStrategy implements BackoffStrategy {
 
   private final Random random = new Random();

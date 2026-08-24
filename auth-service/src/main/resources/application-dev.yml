@@ -8,7 +8,10 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/auth}
     username: ${DB_USERNAME:auth_user}
-    password: ${DB_PASSWORD}
+    # Default mirrors application-common.yml and the compose container's POSTGRES_PASSWORD
+    # (auth-service/docker-compose.yml). Spring Boot does not read .env files — the default
+    # makes the app boot without the env loaded.
+    password: ${DB_PASSWORD:auth_password}
     hikari:
       connection-timeout: ${DB_CONNECTION_TIMEOUT:20000}
       idle-timeout: ${DB_IDLE_TIMEOUT:300000}
@@ -46,20 +49,11 @@ spring:
 auth-service:
   security:
     authentication:
-      mode: ${AUTH_MODE:keycloak}  # Use Keycloak for development
-      jwt:
-        enabled: false
-        secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
-        access-token-ttl: ${JWT_ACCESS_TTL:1h}
-        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
-        issuer: ${JWT_ISSUER:auth-service-dev}
-        audience: ${JWT_AUDIENCE:microservices}
       keycloak:
-        enabled: true  # Enable Keycloak for development
         server-url: ${KEYCLOAK_URL:http://localhost:8080}
         realm: ${KEYCLOAK_REALM:auth-service}
         client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
-        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        credentials-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
         ssl-required: none
         public-client: false
         verify-token-audience: true

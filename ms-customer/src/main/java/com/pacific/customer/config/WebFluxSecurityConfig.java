@@ -15,11 +15,16 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
  * left production without any authentication enforcement. The JWT issuer/jwk-set URI is resolved
  * from {@code spring.security.oauth2.resourceserver.jwt.*} properties per profile (see
  * application-{dev,stg,prod}.yml), so no environment-specific values are hardcoded here.
+ *
+ * <p>Named {@code WebFluxSecurityConfig} (not {@code SecurityConfig}) to avoid a bean-name clash
+ * with {@code com.pacific.core.security.SecurityConfig}, which {@code BackendCoreAutoConfiguration}'s
+ * {@code @ComponentScan("com.pacific.core")} pulls into this context — two same-named
+ * {@code @Configuration} classes would fail startup with a ConflictingBeanDefinitionException.
  */
 @Configuration
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
-public class SecurityConfig {
+public class WebFluxSecurityConfig {
 
   @Bean
   public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {

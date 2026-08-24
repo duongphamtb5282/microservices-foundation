@@ -2,6 +2,7 @@ package com.pacific.payment.modules.payment.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pacific.payment.modules.payment.event.PaymentResultEvent;
+import com.pacific.payment.modules.payment.outbox.entity.PaymentOutboxEntity;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

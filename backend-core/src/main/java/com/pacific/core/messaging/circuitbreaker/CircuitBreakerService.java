@@ -13,7 +13,7 @@ import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.stereotype.Service;
 
 /**
@@ -21,10 +21,13 @@ import org.springframework.stereotype.Service;
  * breaker implementation.
  */
 @Service
-// matchIfMissing=true: order/payment never set kafka.enabled, yet AuthValidationService
-// (order) and KeycloakService (auth) must get the breaker. This replaced the redundant
-// manual @Bean in BackendCoreConfiguration (single definition point, ADR-0011).
-@ConditionalOnProperty(name = "kafka.enabled", havingValue = "true", matchIfMissing = true)
+// Single definition point (ADR-0011): no manual @Bean in BackendCoreConfiguration.
+// Gated on the resilience4j classpath: consumers without the dependency would crash at bean
+// creation while introspecting this class (NoClassDefFoundError: CircuitBreaker$State). The
+// fileTree jar dependency carries no transitive metadata, so core's `api` resilience4j deps don't
+// flow to consumers — each must declare them (auth, order, customer, gateway) or skip the bean
+// (ms-payment, which injects nothing from this class).
+@ConditionalOnClass({CircuitBreakerRegistry.class, CircuitBreaker.class})
 @RequiredArgsConstructor
 @Slf4j
 public class CircuitBreakerService {

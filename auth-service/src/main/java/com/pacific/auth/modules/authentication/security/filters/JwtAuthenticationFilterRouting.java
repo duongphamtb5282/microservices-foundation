@@ -1,7 +1,5 @@
 package com.pacific.auth.modules.authentication.security.filters;
 
-import com.pacific.auth.modules.authentication.security.jwt.custom.CustomJwtAuthenticationProvider;
-import com.pacific.auth.modules.authentication.security.jwt.custom.CustomJwtAuthenticationToken;
 import com.pacific.auth.modules.authentication.security.jwt.keycloak.KeycloakJwtAuthenticationProvider;
 import com.pacific.auth.modules.authentication.security.jwt.keycloak.KeycloakJwtAuthenticationToken;
 import jakarta.servlet.FilterChain;
@@ -12,31 +10,25 @@ import java.io.IOException;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Enhanced JWT authentication filter that uses smart token routing to determine the appropriate
- * authentication provider for each token.
+ * JWT authentication filter backed by the Keycloak authentication provider. Token-type routing was
+ * removed with the dual-mode stack (S-06): every Bearer token is validated against Keycloak.
  *
- * <p>This filter uses header-based routing via X-Token-Type header: - "custom": Routes to custom
- * JWT authentication provider - "keycloak": Routes to Keycloak JWT authentication provider - No
- * header or unknown value: Falls back to authentication manager
+ * <p>The provider chain is fully self-contained: authenticateToken catches every attempt, so a
+ * failed token never aborts the request — downstream security filters decide.
  */
 @Slf4j
 public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
 
-  private final CustomJwtAuthenticationProvider customJwtProvider;
   private final KeycloakJwtAuthenticationProvider keycloakJwtProvider;
   private AuthenticationManager authenticationManager;
 
-  public JwtAuthenticationFilterRouting(
-      CustomJwtAuthenticationProvider customJwtProvider,
-      KeycloakJwtAuthenticationProvider keycloakJwtProvider) {
-    this.customJwtProvider = customJwtProvider;
+  public JwtAuthenticationFilterRouting(KeycloakJwtAuthenticationProvider keycloakJwtProvider) {
     this.keycloakJwtProvider = keycloakJwtProvider;
   }
 
@@ -79,15 +71,16 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
 
   /**
    * Run the ordered authentication chain exactly once and return the first success: authentication
-   * manager (when configured) → custom JWT provider → Keycloak JWT provider. Every attempt is
-   * individually caught so a failure in one provider falls through to the next instead of failing
-   * the request.
+   * manager (when configured) → Keycloak JWT provider. Every attempt is individually caught so a
+   * failure in one provider falls through to the next instead of failing the request.
    */
   private Authentication authenticateToken(String token) {
+    KeycloakJwtAuthenticationToken authentication = new KeycloakJwtAuthenticationToken(token);
+
     if (authenticationManager != null) {
       Authentication auth =
           tryAttempt(
-              () -> authenticationManager.authenticate(createAuthentication(token)),
+              () -> authenticationManager.authenticate(authentication),
               "authentication manager");
       if (auth != null) {
         return auth;
@@ -95,21 +88,7 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
     }
 
     Authentication auth =
-        tryAttempt(
-            () ->
-                customJwtProvider.authenticate(
-                    createAuthenticationForProvider(token, customJwtProvider)),
-            "custom JWT provider");
-    if (auth != null) {
-      return auth;
-    }
-
-    auth =
-        tryAttempt(
-            () ->
-                keycloakJwtProvider.authenticate(
-                    createAuthenticationForProvider(token, keycloakJwtProvider)),
-            "Keycloak JWT provider");
+        tryAttempt(() -> keycloakJwtProvider.authenticate(authentication), "Keycloak JWT provider");
     if (auth != null) {
       return auth;
     }
@@ -152,26 +131,5 @@ public class JwtAuthenticationFilterRouting extends OncePerRequestFilter {
     }
 
     return null;
-  }
-
-  /**
-   * Create authentication object from token. Creates the appropriate authentication token based on
-   * the provider.
-   */
-  private Authentication createAuthentication(String token) {
-    // For custom JWT provider, create CustomJwtAuthenticationToken
-    return new CustomJwtAuthenticationToken(token);
-  }
-
-  /** Create authentication object for specific provider. */
-  private Authentication createAuthenticationForProvider(String token, Object provider) {
-    if (provider instanceof CustomJwtAuthenticationProvider) {
-      return new CustomJwtAuthenticationToken(token);
-    } else if (provider instanceof KeycloakJwtAuthenticationProvider) {
-      return new KeycloakJwtAuthenticationToken(token);
-    } else {
-      // Fallback to generic token
-      return new UsernamePasswordAuthenticationToken(token, null);
-    }
   }
 }

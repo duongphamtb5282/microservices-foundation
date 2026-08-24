@@ -49,11 +49,27 @@ spring:
       max-lifetime: 600000
       leak-detection-threshold: 30000
 
-  # Liquibase Configuration
+  # Liquibase removed from auth-service (LiquibaseConfig.java deleted, migrations moved to
+  # Flyway). Kept disabled here because backend-core still brings liquibase-core transitively
+  # and its auto-configuration would otherwise run a second migration runner against the same
+  # database.
   liquibase:
+    enabled: false
+
+  # Flyway Configuration — migrations live in classpath:db/migration
+  flyway:
     enabled: true
-    change-log: classpath:/db/changelog-master.xml
-    default-schema: public
+    locations: classpath:db/migration
+    # Flyway manages ONLY the auth schema. Keycloak's tables live in public (Keycloak runs its
+    # own Liquibase against this same database) and must never be baselined or touched — scoping
+    # to auth also avoids the "non-empty schema public but no schema history table" failure.
+    schemas: auth
+    default-schema: auth
+    # The schema may already be populated (dev database was created before Flyway took over).
+    # Baseline it at version 0 so pre-existing objects are accepted, then V1/V2 apply
+    # idempotently (IF NOT EXISTS / ON CONFLICT DO NOTHING).
+    baseline-on-migrate: true
+    baseline-version: 0
 
   # JPA Configuration with Multi-Level Caching
   jpa:
@@ -124,20 +140,11 @@ springdoc:
 auth-service:
   security:
     authentication:
-      mode: ${AUTH_MODE:custom}  # Default to custom, overridden by profiles
-      jwt:
-        enabled: false
-        secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
-        access-token-ttl: ${JWT_ACCESS_TTL:1h}
-        refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
-        issuer: ${JWT_ISSUER:auth-service}
-        audience: ${JWT_AUDIENCE:microservices}
       keycloak:
-        enabled: true
         server-url: ${KEYCLOAK_URL:http://localhost:8080}
         realm: auth-service
         client-id: ${KEYCLOAK_CLIENT_ID:auth-service-client}
-        client-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
+        credentials-secret: ${KEYCLOAK_CLIENT_SECRET:your-client-secret-here}
         ssl-required: none
         public-client: false
         verify-token-audience: true
@@ -164,6 +171,9 @@ auth-service:
         - /api/auth/login
         - /api/auth/register
         - /api/auth/refresh
+        # validate is called with the token in the BODY (no Authorization header) — it must be
+        # reachable without Bearer auth, like the other public auth endpoints.
+        - /api/auth/validate
         - /api/auth/forgot-password
         - /api/auth/reset-password
         - /api/public/**
@@ -216,13 +226,6 @@ auth-service:
       token: ${AUTH_CACHE_TTL_TOKEN:15m}
       permission: ${AUTH_CACHE_TTL_PERMISSION:1h}
 
-  jwt:
-    access-token-ttl: ${JWT_ACCESS_TTL:1h}
-    refresh-token-ttl: ${JWT_REFRESH_TTL:7d}
-    secret: ${JWT_SECRET:jUgGhjJ+vp1sj8502aJBaRNHbpdU3Oi1GoINYtuNO1Y=}
-    issuer: ${JWT_ISSUER:auth-service}
-    audience: ${JWT_AUDIENCE:microservices}
-
   auth-cache:
     user-ttl: ${AUTH_USER_CACHE_TTL:5m}
     token-ttl: ${AUTH_TOKEN_CACHE_TTL:15m}
@@ -242,10 +245,6 @@ security:
     connect-src: ${SECURITY_CONNECT_SRC:http://localhost:3000 http://localhost:8080 http://localhost:8082}
 
   token-detection:
-    custom:
-      issuer: ${JWT_ISSUER:auth-service}
-      issuer-patterns:
-        - ${JWT_ISSUER:auth-service}
     keycloak:
       issuer-patterns:
         - keycloak

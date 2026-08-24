@@ -5,6 +5,7 @@ import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
@@ -25,9 +26,19 @@ import com.pacific.core.cache.multitier.MultiTierCacheManager;
 /**
  * Main cache configuration that sets up both Caffeine (L1) and Redis (L2) caches. Uses externalized
  * properties for TTL configuration.
+ *
+ * <p>Gated on the Redis classpath ({@code @ConditionalOnClass}) as well as {@code cache.enabled}:
+ * this class is swept into every consumer via {@code @ComponentScan("com.pacific.core")}, and if a
+ * consumer lacks spring-data-redis (e.g. ms-payment), registering its Redis-typed factory methods
+ * makes Spring's OnBeanCondition crash while introspecting them (NoClassDefFoundError:
+ * RedisSerializer) — even when {@code cache.enabled} would skip the stack later. The classpath gate
+ * is evaluated from ASM metadata before any class is loaded, so the stack is skipped for those
+ * consumers regardless of the property. Mirrors {@code KafkaConsumerConfig}'s
+ * {@code @ConditionalOnClass(ConcurrentKafkaListenerContainerFactory.class)}.
  */
 @Configuration
 @EnableCaching
+@ConditionalOnClass({RedisTemplate.class, RedisConnectionFactory.class})
 @ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = false)
 @RequiredArgsConstructor
 @Slf4j
@@ -85,7 +96,10 @@ public class CacheConfig {
 
   /** RedisTemplate bean for direct Redis operations. */
   @Bean
-  @ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = true)
+  // matchIfMissing=false to agree with the class gate above: the method condition is redundant
+  // once the class passed, but a mismatched default invites the same wiring confusion as the
+  // cache services (which all use false now).
+  @ConditionalOnProperty(name = "cache.enabled", havingValue = "true", matchIfMissing = false)
   public RedisTemplate<String, Object> redisTemplate() {
     log.info("Configuring RedisTemplate for direct Redis operations");
 

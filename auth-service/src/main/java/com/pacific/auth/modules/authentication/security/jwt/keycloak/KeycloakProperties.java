@@ -1,7 +1,6 @@
 package com.pacific.auth.modules.authentication.security.jwt.keycloak;
 
 import lombok.Data;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -9,10 +8,6 @@ import org.springframework.stereotype.Component;
 @Data
 @Component
 @ConfigurationProperties(prefix = "auth-service.security.authentication.keycloak")
-@ConditionalOnProperty(
-    name = "auth-service.security.authentication.keycloak.enabled",
-    havingValue = "true",
-    matchIfMissing = false)
 public class KeycloakProperties {
 
   /** Keycloak server URL */

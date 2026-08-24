@@ -8,6 +8,8 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +18,7 @@ import org.springframework.context.annotation.Configuration;
  * values.
  */
 @Configuration
+@ConditionalOnClass(OpenAPI.class)
 @RequiredArgsConstructor
 public class OpenApiConfiguration {
 
@@ -26,7 +29,11 @@ public class OpenApiConfiguration {
    *
    * @return the OpenAPI configuration
    */
+  // Fallback only: a service that defines its own OpenAPI bean (e.g. ms-order's OpenApiConfig with
+  // per-service branding) keeps it — without the gate, SpringDoc's openAPIBuilder saw two OpenAPI
+  // beans and failed with NoUniqueBeanDefinitionException.
   @Bean
+  @ConditionalOnMissingBean(OpenAPI.class)
   public OpenAPI customOpenAPI() {
     OpenAPI openAPI =
         new OpenAPI()

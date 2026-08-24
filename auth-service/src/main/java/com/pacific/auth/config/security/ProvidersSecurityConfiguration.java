@@ -1,38 +1,32 @@
 package com.pacific.auth.config.security;
 
 import com.pacific.auth.modules.authentication.security.filters.JwtAuthenticationFilter;
-import com.pacific.auth.modules.authentication.security.jwt.custom.CustomJwtAuthenticationProvider;
 import com.pacific.auth.modules.authentication.security.jwt.keycloak.KeycloakJwtAuthenticationProvider;
-import com.pacific.auth.modules.user.service.UserDetailsServiceImpl;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 /**
- * Providers security configuration for auth-service. Consolidates all security concerns and
- * authentication providers into a single, clean configuration. This is the main security
- * configuration that: - Enables web security - Enables method security - Configures CORS - Sets up
- * security filter chain with JWT authentication - Manages authentication providers (DAO, Custom
- * JWT, Keycloak) - Configures authorization rules
+ * Providers security configuration for auth-service. Keycloak is the single authentication provider
+ * (S-06): the dual-mode switch (custom/keycloak/database) and the DAO user-details stack were
+ * removed. This class: - Enables web security - Enables method security - Configures CORS - Sets up
+ * security filter chain with JWT authentication - Manages the Keycloak authentication provider -
+ * Configures authorization rules
  */
 @Configuration
 @EnableWebSecurity
@@ -40,27 +34,15 @@ import org.springframework.web.cors.CorsConfigurationSource;
 @Slf4j
 public class ProvidersSecurityConfiguration {
 
-  private final UserDetailsServiceImpl userDetailsService;
   private final CorsConfigurationSource corsConfigurationSource;
-  private final PasswordEncoder passwordEncoder;
   private final SecurityEndpointsProperties securityEndpointsProperties;
-
-  // JWT Authentication Providers (optional - only loaded when needed)
-  // Note: Using @Lazy to break circular dependencies
 
   @Autowired private ApplicationContext applicationContext;
 
-  @Value("${auth-service.security.authentication.mode:custom}")
-  private String authMode;
-
   public ProvidersSecurityConfiguration(
-      UserDetailsServiceImpl userDetailsService,
       CorsConfigurationSource corsConfigurationSource,
-      PasswordEncoder passwordEncoder,
       SecurityEndpointsProperties securityEndpointsProperties) {
-    this.userDetailsService = userDetailsService;
     this.corsConfigurationSource = corsConfigurationSource;
-    this.passwordEncoder = passwordEncoder;
     this.securityEndpointsProperties = securityEndpointsProperties;
   }
 
@@ -152,56 +134,26 @@ public class ProvidersSecurityConfiguration {
     return http.build();
   }
 
-  /** Unified Authentication Manager */
+  /** Unified Authentication Manager — Keycloak is the only provider (S-06). */
   @Bean
   @Primary
   public AuthenticationManager authenticationManager() {
     log.info("🔐 Configuring unified authentication manager for auth-service");
 
-    // Create basic DAO authentication provider
-    DaoAuthenticationProvider daoAuthProvider = new DaoAuthenticationProvider();
-    daoAuthProvider.setUserDetailsService(userDetailsService);
-    daoAuthProvider.setPasswordEncoder(passwordEncoder);
-
-    // Build provider list with available providers
     List<org.springframework.security.authentication.AuthenticationProvider> providers =
         new ArrayList<>();
-    providers.add(daoAuthProvider);
-    switch (authMode.toLowerCase()) {
-      case "custom":
-        // Add JWT providers if available (get from application context after initialization)
-        try {
-          CustomJwtAuthenticationProvider customJwtProvider =
-              applicationContext.getBean(
-                  "customJwtAuthenticationProvider", CustomJwtAuthenticationProvider.class);
-          providers.add(customJwtProvider);
-          log.info("✅ CustomJwtAuthenticationProvider added");
-        } catch (Exception e) {
-          log.debug("CustomJwtAuthenticationProvider not available: {}", e.getMessage());
-        }
-        break;
-      case "keycloak":
-        // Fall-through from "custom" was leaking the Keycloak provider into custom mode (S-06)
-        try {
-          KeycloakJwtAuthenticationProvider keycloakJwtProvider =
-              applicationContext.getBean(KeycloakJwtAuthenticationProvider.class);
-          providers.add(keycloakJwtProvider);
-          log.info("✅ KeycloakJwtAuthenticationProvider added");
-        } catch (Exception e) {
-          log.debug("KeycloakJwtAuthenticationProvider not available: {}", e.getMessage());
-        }
+    try {
+      KeycloakJwtAuthenticationProvider keycloakJwtProvider =
+          applicationContext.getBean(KeycloakJwtAuthenticationProvider.class);
+      providers.add(keycloakJwtProvider);
+      log.info("✅ KeycloakJwtAuthenticationProvider added");
+    } catch (Exception e) {
+      log.debug("KeycloakJwtAuthenticationProvider not available: {}", e.getMessage());
     }
 
     AuthenticationManager manager = new ProviderManager(providers);
     log.info("✅ Unified authentication manager configured with {} providers", providers.size());
 
     return manager;
-  }
-
-  /** Provide UserDetailsService for the base security configuration */
-  @Bean
-  @Primary
-  public UserDetailsService userDetailsService() {
-    return userDetailsService;
   }
 }

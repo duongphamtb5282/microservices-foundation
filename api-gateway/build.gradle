@@ -31,6 +31,11 @@ repositories {
 dependencyManagement {
     imports {
         mavenBom "org.springframework.boot:spring-boot-dependencies:3.5.5"
+        // Spring Cloud 2025.0.0 is the release train paired with Boot 3.5.x. Without this BOM the
+        // hard-coded component versions below resolve to the 2023.0.x-era libraries, and the
+        // spring-cloud compatibility verifier refuses to start ("Spring Boot [3.5.5] is not
+        // compatible with this Spring Cloud release train").
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:2025.0.0"
     }
 }
 
@@ -44,21 +49,25 @@ dependencies {
         implementation "com.pacific:backend-core:${backendCoreVersion}"
     }
     
-    // Spring Cloud Gateway
-    implementation 'org.springframework.cloud:spring-cloud-starter-gateway:4.1.5'
+    // Spring Cloud Gateway (version from the 2025.0.0 BOM)
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
     
     // Spring Boot Starters
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Spring Security Core — backend-core's SecurityService (used by ApiKeyAuthenticationFilter)
+    // references security-core types; crypto alone is not enough to load the bean.
+    implementation 'org.springframework.security:spring-security-core'
     
     // JWT Validation (local RS256 verification against Keycloak JWKS, F-35)
     implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
     runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
 
-    // Circuit Breaker
-    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j:3.1.0'
+    // Circuit Breaker (version from the 2025.0.0 BOM)
+    implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j'
     
     // Lombok
     compileOnly 'org.projectlombok:lombok:1.18.38'

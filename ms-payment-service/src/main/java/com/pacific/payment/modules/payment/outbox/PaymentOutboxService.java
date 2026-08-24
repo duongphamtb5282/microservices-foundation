@@ -3,6 +3,7 @@ package com.pacific.payment.modules.payment.outbox;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pacific.payment.modules.payment.event.PaymentResultEvent;
+import com.pacific.payment.modules.payment.outbox.entity.PaymentOutboxEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

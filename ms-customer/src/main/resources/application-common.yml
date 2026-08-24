@@ -1,7 +1,13 @@
 # Common Configuration (shared across all profiles)
 mongo:
   enabled: true
-  uri: ${MONGODB_URI:mongodb://localhost:27017/customerdb}
+  # This default URI is the one Spring Data actually uses (spring.data.mongodb.uri resolves
+  # mongo.uri) — it MUST carry credentials, otherwise every query fails with "Command find
+  # requires authentication" (error 13): a credential-less default here silently overrode the
+  # dev profile's username/password (2026-08-25). Defaults match the compose root user
+  # (admin/password123, authSource admin); MONGODB_URI overrides everything. URL-encode special
+  # characters in passwords when overriding via MONGODB_USERNAME/MONGODB_PASSWORD.
+  uri: ${MONGODB_URI:mongodb://${MONGODB_USERNAME:admin}:${MONGODB_PASSWORD:password123}@localhost:27017/customerdb?authSource=${MONGODB_AUTH_DATABASE:admin}}
   host: ${MONGODB_HOST:localhost}
   port: ${MONGODB_PORT:27017}
   database: ${MONGODB_DATABASE:customerdb}
@@ -29,19 +35,29 @@ spring:
 
   data:
     mongodb:
-      # Use mongo.uri if provided, otherwise construct from individual properties
-      uri: ${mongo.uri:mongodb://${mongo.host}:${mongo.port}/${mongo.database}}
-      host: ${mongo.host}
-      port: ${mongo.port}
-      database: ${mongo.database}
-      username: ${mongo.username:}
-      password: ${mongo.password:}
+      # Spring Data MongoDB uses ONLY the URI when one is set — username/password below are ignored
+      # in that case. The old fallback URI was credential-less, so every query failed with
+      # "Command find requires authentication" (error 13). The fallback now embeds the credentials
+      # (dev defaults = the compose root user admin/password123, authSource admin; prod/stg set
+      # mongo.uri explicitly and their URI wins). URL-encode special characters in passwords, or
+      # set MONGODB_URI to bypass this entirely.
+      uri: ${mongo.uri:mongodb://${mongo.username:admin}:${mongo.password:password123}@${mongo.host:localhost}:${mongo.port:27017}/${mongo.database:customerdb}?authSource=${mongo.authenticationDatabase:admin}}
+      host: ${mongo.host:localhost}
+      port: ${mongo.port:27017}
+      database: ${mongo.database:customerdb}
+      username: ${mongo.username:admin}
+      password: ${mongo.password:password123}
       authentication-database: ${mongo.authenticationDatabase:admin}
 
   kafka:
     consumer:
       group-id: customer-service
       auto-offset-reset: earliest
+      # Fallback target class for records without a __TypeId__ header (written before 2026-08-25,
+      # when core's producer still disabled type headers). user-events carries only UserCreatedEvent,
+      # so a headerless payload is always decodable as it. Without this, the JsonDeserializer fails
+      # with "no type information in headers" and the error handler retries the same offset forever.
+      value-default-type: com.pacific.shared.events.UserCreatedEvent
 
   # JWT configuration moved to profile-specific files (dev, stg, prod)
 

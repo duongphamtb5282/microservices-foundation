@@ -19,10 +19,15 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 /**
  * Kafka consumer configuration for the saga return path (F-02). Mirrors the payment service's
  * consumer config: manual acks (at-least-once) and a concrete default type.
+ *
+ * <p>Named {@code OrderKafkaConsumerConfig} (not {@code KafkaConsumerConfig}) to avoid a bean-name
+ * clash with {@code com.pacific.core.config.KafkaConsumerConfig}, which BackendCoreAutoConfiguration
+ * pulls into this context — two same-named {@code @Configuration} classes fail startup with a
+ * ConflictingBeanDefinitionException.
  */
 @Configuration
 @EnableKafka
-public class KafkaConsumerConfig {
+public class OrderKafkaConsumerConfig {
 
   @Value("${spring.kafka.bootstrap-servers}")
   private String bootstrapServers;

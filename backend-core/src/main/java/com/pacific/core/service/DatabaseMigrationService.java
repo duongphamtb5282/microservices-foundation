@@ -1,5 +1,6 @@
 package com.pacific.core.service;
 
+import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -10,12 +11,14 @@ import javax.sql.DataSource;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.liquibase.LiquibaseProperties;
 import org.springframework.stereotype.Service;
 
 /** Centralized database migration and management service */
 @Slf4j
 @Service
+@ConditionalOnClass(HikariDataSource.class)
 public class DatabaseMigrationService {
 
   private final DataSource dataSource;

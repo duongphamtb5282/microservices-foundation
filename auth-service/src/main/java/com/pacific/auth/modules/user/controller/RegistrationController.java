@@ -25,19 +25,8 @@ public class RegistrationController {
       @RequestBody RegistrationRequestDto request) {
     log.info("🚀 Processing registration request for user: {}", request.getUsername());
 
-    // Convert DTO to entity and register user
-    var user = new com.pacific.auth.modules.user.entity.User();
-    user.setUserName(request.getUsername());
-    user.setEmail(request.getEmail());
-    user.setPassword(request.getPassword());
-
-    var registeredUser = userRegistrationService.registerUser(user);
-    log.info("User registration service completed for: {}", registeredUser.getUserName());
-
-    RegistrationResponseDto response =
-        new RegistrationResponseDto(registeredUser.getUserName(), registeredUser.getEmail());
+    RegistrationResponseDto response = userRegistrationService.registerUser(request);
     log.info("✅ Registration successful for user: {}", request.getUsername());
-    log.info("Returning response: {}", response);
     return ResponseEntity.ok(response);
   }
 }
