@@ -1,0 +1,134 @@
+<mxfile host="app.diagrams.net" agent="nexus-architect" version="24.0.0">
+  <diagram name="Saga &amp; Outbox Sequence" id="saga-outbox-sequence">
+    <mxGraphModel dx="1300" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1120" pageHeight="820" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Choreographed Saga with Transactional Outbox — Order → Payment → Settlement (ADR-0001/0002)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=15;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="6" width="800" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Lifeline heads -->
+        <mxCell id="hClient" value="Client" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="20" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hOrder" value="Order Service" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hOutboxO" value="Order Outbox&#10;Relay" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="380" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hKafka" value="Kafka" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hPay" value="Payment Service" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="740" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="hOutboxP" value="Payment Outbox&#10;Relay" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="920" y="34" width="140" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Lifeline stems -->
+        <mxCell id="sClient" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="89" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="sOrder" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="269" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="sOutboxO" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="449" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="sKafka" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#d6b656;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="629" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="sPay" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#6c8ebf;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="809" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="sOutboxP" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#82b366;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="989" y="70" width="2" height="580" as="geometry" />
+        </mxCell>
+
+        <!-- Activation boxes -->
+        <mxCell id="aOrder" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="263" y="120" width="12" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="aPay" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="803" y="390" width="12" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- Messages -->
+        <mxCell id="m1" value="POST /api/v2/orders (CreateOrderCommand)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="90" y="120" as="sourcePoint" />
+            <mxPoint x="270" y="120" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2a" value="TX: save order + event-store + outbox row (atomic)" style="html=1;endArrow=none;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="300" y="180" as="sourcePoint" />
+            <mxPoint x="350" y="180" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m2b" value="" style="html=1;endArrow=block;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="350" y="186" as="sourcePoint" />
+            <mxPoint x="300" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m3" value="poll PENDING rows (500ms)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="270" y="250" as="sourcePoint" />
+            <mxPoint x="450" y="250" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m4" value="publish order.events (OrderCreatedEvent)&#10;mark PUBLISHED only after broker ack; attempts ≥ 5 → FAILED" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="450" y="320" as="sourcePoint" />
+            <mxPoint x="630" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m5" value="consume (manual ack; retry ×3 → DLQ)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="390" as="sourcePoint" />
+            <mxPoint x="810" y="390" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6a" value="TX: create payment + outbox row (COMPLETED/FAILED)&#10;idempotent on order_id (UNIQUE)" style="html=1;endArrow=none;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="840" y="460" as="sourcePoint" />
+            <mxPoint x="890" y="460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m6b" value="" style="html=1;endArrow=block;fontSize=10;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="890" y="466" as="sourcePoint" />
+            <mxPoint x="840" y="466" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m7" value="poll PENDING rows (500ms)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="810" y="530" as="sourcePoint" />
+            <mxPoint x="990" y="530" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m8" value="publish payment.events (PaymentResultEvent)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="990" y="600" as="sourcePoint" />
+            <mxPoint x="630" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="m9" value="settle CONFIRMED / FAILED (skip if terminal — idempotent)" style="html=1;endArrow=block;fontSize=10;verticalLabelPosition=top;verticalAlign=bottom;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="630" y="670" as="sourcePoint" />
+            <mxPoint x="270" y="670" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Gap note -->
+        <mxCell id="note" value="COMPENSATION GAP (ADR-0007): DELETE /orders/{id} → order CANCELLED — writes event-store only, no outbox record, so payment never learns; no refund path (PaymentStatus.REFUNDED is dead code)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="140" y="720" width="780" height="44" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -45,9 +45,9 @@ isolation, or observability — the platform provides the rails.
 
 ### C4 Context
 
-![C4-Context](docs/architecture/c4-context.png)
+![C4-Context](architectures/c4-context.png)
 
-*Editable source: [c4-context.drawio](docs/architecture/c4-context.drawio)*
+*Editable source: [c4-context.drawio](architectures/c4-context.drawio)*
 
 Clients reach the platform through a single HTTP entry point. The system owns identity (Keycloak),
 the event backbone (Kafka), three relational stores (PostgreSQL per service), customer profiles
@@ -55,9 +55,9 @@ the event backbone (Kafka), three relational stores (PostgreSQL per service), cu
 
 ### C4 Container
 
-![C4-Container](docs/architecture/c4-container.png)
+![C4-Container](architectures/c4-container.png)
 
-*Editable source: [c4-container.drawio](docs/architecture/c4-container.drawio)*
+*Editable source: [c4-container.drawio](architectures/c4-container.drawio)*
 
 Five services, one gateway, zero shared databases. **api-gateway** terminates REST + GraphQL and
 validates JWTs at the edge; **auth-service** is a thin Keycloak proxy owning users, roles and
@@ -73,9 +73,9 @@ primitives, audit listener, and the shared event/command contracts.
 A **Zero-Trust AWS landing zone** wraps the platform in defense-in-depth — from the public edge to
 the database rows:
 
-![AWS Infrastructure](docs/architecture/architect.drawio.png)
+![AWS Infrastructure](architectures/architect.drawio.png)
 
-*Editable source: [architect.drawio](docs/architecture/architect.drawio)*
+*Editable source: [architect.drawio](architectures/architect.drawio)*
 
 - **Edge:** Route 53 → CloudFront → WAF + Shield absorb DDoS and filter traffic before it reaches
   the platform; API Gateway validates JWTs at the boundary.
@@ -115,9 +115,9 @@ Foundation libraries:
 All async communication goes through **Kafka (KRaft)** — at-least-once delivery, idempotent
 consumers, outbox producers, DLQ off the hot path:
 
-![Event-Driven Backbone](docs/architecture/event-driven.png)
+![Event-Driven Backbone](architectures/event-driven.png)
 
-*Editable source: [event-driven.drawio](docs/architecture/event-driven.drawio)*
+*Editable source: [event-driven.drawio](architectures/event-driven.drawio)*
 
 | Topic | Producer | Consumer | Payload |
 |---|---|---|---|
@@ -134,9 +134,9 @@ version without cross-service compile-time coupling.
 The gateway hosts a **backend-for-frontend** — one aggregated `POST /graphql` endpoint (`:8088`)
 that frontend clients use instead of fanning out to five REST services:
 
-![C4-Component — api-gateway](docs/architecture/gateway-component.png)
+![C4-Component — api-gateway](architectures/gateway-component.png)
 
-*Editable source: [gateway-component.drawio](docs/architecture/gateway-component.drawio)*
+*Editable source: [gateway-component.drawio](architectures/gateway-component.drawio)*
 
 **Schema** (`api-gateway/src/main/resources/graphql/schema.graphqls`) — queries: `me`, `order`,
 `orders` (paginated, filtered by status), `customer`, `paymentByOrder`; mutations: `login`,
@@ -164,9 +164,9 @@ the token itself — a compromised BFF still cannot mint access.
 written to an outbox table in the same DB transaction, and a relay publishes it afterwards. No
 dual-write inconsistency, no lost events.
 
-![Transactional Outbox](docs/architecture/outbox.png)
+![Transactional Outbox](architectures/outbox.png)
 
-*Editable source: [outbox.drawio](docs/architecture/outbox.drawio)*
+*Editable source: [outbox.drawio](architectures/outbox.drawio)*
 
 **Where (live):**
 
@@ -184,9 +184,9 @@ dual-write inconsistency, no lost events.
 Consumers achieve idempotency with **domain-key deduplication** — a deliberately lightweight
 alternative to a message-level inbox table:
 
-![Inbox & Idempotency](docs/architecture/inbox-idempotency.png)
+![Inbox & Idempotency](architectures/inbox-idempotency.png)
 
-*Editable source: [inbox-idempotency.drawio](docs/architecture/inbox-idempotency.drawio)*
+*Editable source: [inbox-idempotency.drawio](architectures/inbox-idempotency.drawio)*
 
 - ms-customer deduplicates `UserCreatedEvent` **on email** — re-delivery cannot create duplicate
   customers.
@@ -208,9 +208,9 @@ crash there replays the event, which the dedup key absorbs.
 The order lifecycle is a **choreographed saga** across two services with an outbox at each leg — no
 orchestrator, no locks:
 
-![Choreographed Saga](docs/architecture/saga-sequence.png)
+![Choreographed Saga](architectures/saga-sequence.png)
 
-*Editable source: [saga-sequence.drawio](docs/architecture/saga-sequence.drawio)*
+*Editable source: [saga-sequence.drawio](architectures/saga-sequence.drawio)*
 
 ```
 1. POST /orders

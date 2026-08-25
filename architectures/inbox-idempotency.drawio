@@ -1,0 +1,44 @@
+<mxfile host="app.diagrams.net" agent="nexus-architect" version="24.0.0">
+  <diagram name="Inbox &amp; Idempotency" id="inbox-idem"><mxGraphModel dx="1500" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="900" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="title" value="Idempotent Consumers — at-least-once delivery absorbed by domain-key dedup (ADR-0004/0016)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="1200" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="kafka" value="Kafka&#10;at-least-once — redelivery when no ack" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="40" y="250" width="200" height="100" as="geometry" />
+    </mxCell>
+    <mxCell id="consumer" value="Consumer — MANUAL_IMMEDIATE ack&#10;ack only after the effect is durable" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;verticalAlign=top;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="330" y="120" width="700" height="440" as="geometry" />
+    </mxCell>
+    <mxCell id="c1" value="ms-customer · UserEventConsumer&#10;dedup UserCreatedEvent on email —&#10;redelivery cannot duplicate customers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=middle;" vertex="1" parent="consumer">
+      <mxGeometry x="40" y="60" width="300" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="c2" value="ms-payment · OrderEventConsumer&#10;upsert payment by orderId (UNIQUE) —&#10;a replayed ORDER_CREATED overwrites" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=middle;" vertex="1" parent="consumer">
+      <mxGeometry x="360" y="60" width="300" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="c3" value="ms-order · PaymentEventConsumer&#10;settle CONFIRMED / FAILED — skip when terminal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=middle;" vertex="1" parent="consumer">
+      <mxGeometry x="40" y="180" width="300" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="c4" value="ms-order · POST /api/v2/orders&#10;idempotency-key table — completed key&#10;replays stored result (200) · in-flight → 409" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;verticalAlign=middle;" vertex="1" parent="consumer">
+      <mxGeometry x="360" y="180" width="300" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="ack" value="Success → ACK → offset committed&#10;Failure → no ack → Kafka redelivers&#10;the dedup key absorbs the replay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;verticalAlign=middle;" vertex="1" parent="consumer">
+      <mxGeometry x="40" y="320" width="620" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="dlq" value="Poison payload → non-retryable → DLQ&#10;(&lt;topic&gt;.dlq — core DeadLetterQueue, off the hot path)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1120" y="250" width="280" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="note" value="Trade-off: no message-level inbox table — a crash between DB commit and ack replays the event, which the domain-key absorbs. Exactly-once effects without the inbox overhead." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="40" y="620" width="1200" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="1" source="kafka" target="consumer" value="deliver" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;endArrow=block;endFill=1;exitX=1;exitY=0.4;entryX=0;entryY=0.3;">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="1" source="consumer" target="dlq" value="unparseable" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;endArrow=block;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.5;">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+  </root>
+  </mxGraphModel></diagram>
+</mxfile>

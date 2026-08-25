@@ -1,0 +1,56 @@
+<mxfile host="app.diagrams.net" agent="nexus-architect" version="24.0.0">
+  <diagram name="C4-Context" id="c4-context"><mxGraphModel dx="1400" dy="950" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="950" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="title" value="C4-Context — Microservices Foundation" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=18;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="40" y="20" width="700" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="system" value="Microservices Foundation&#10;&#10;Production e-commerce microservices platform — identity, orders, payments, customer profiles.&#10;Java 21 · Spring Boot 3 · Kafka event backbone · GraphQL backend-for-frontend." style="rounded=1;whiteSpace=wrap;html=1;arcSize=4;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;fontSize=14;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="320" y="160" width="760" height="720" as="geometry" />
+    </mxCell>
+    <mxCell id="client" value="Frontend Client&#10;(Web / Mobile)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#08427B;strokeColor=#08427B;fontColor=#ffffff;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="430" width="160" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="keycloak" value="Keycloak&#10;Identity provider — OIDC&#10;MFA (TOTP) · SSO (GitHub / Google)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="170" width="220" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="kafka" value="Apache Kafka (KRaft)&#10;Event backbone — at-least-once&#10;outbox · saga · dedup" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="290" width="220" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="postgres" value="PostgreSQL ×3&#10;auth_db · orders_db · payments_db" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="410" width="220" height="80" as="geometry" />
+    </mxCell>
+    <mxCell id="mongodb" value="MongoDB&#10;Customer profiles" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="530" width="220" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="redis" value="Redis&#10;L2 cache · rate limiting" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="640" width="220" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="prometheus" value="Prometheus + Grafana&#10;Metrics · alert rules · dashboards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="1140" y="750" width="220" height="70" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" value="HTTPS — REST /api/* + GraphQL POST /graphql" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="client" target="system">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="OIDC — token issuance &amp; validation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.18;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="keycloak">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="Events — outbox &amp; saga (at-least-once)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.36;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="kafka">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="JPA — transactional data" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.55;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="postgres">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e5" value="Reactive persistence" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.71;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="mongodb">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e6" value="Cache L2 · rate limiting" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.85;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="redis">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e7" value="Metrics — /actuator/prometheus" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;fontSize=10;fontColor=#666666;exitX=1;exitY=0.97;entryX=0;entryY=0.5;" edge="1" parent="1" source="system" target="prometheus">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel></diagram>
+</mxfile>
