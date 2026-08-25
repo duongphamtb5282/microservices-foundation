@@ -1,35 +1,29 @@
 # Microservices Foundation
 
-A production-oriented microservices platform built with **Java 21** and **Spring Boot 3** — a
-complete e-commerce order lifecycle (identity → orders → payments → customer profiles) running on
-**Kafka (KRaft)** with a **GraphQL backend-for-frontend (BFF)** at the edge.
+A production-grade **Java 21 + Spring Boot 3** microservices platform — a complete e-commerce order
+lifecycle (identity → orders → payments → customer profiles) wired together by **Kafka (KRaft)**,
+secured by **Keycloak**, and fronted by a **GraphQL backend-for-frontend (BFF)** at the edge.
 
-The platform is engineered for the problems that kill microservices in production: **guaranteed
-event delivery**, **exactly-once business effects from at-least-once messaging**, **saga
-compensation**, **boundary isolation under load**, and **one aggregated API surface** for frontend
-clients. Every reliability mechanism is *live and exercised*, not scaffolded.
-
-> **Last updated: 2026-08-25** — GraphQL BFF on the gateway, MFA/SSO in the Keycloak realm,
-> resilience & hardening pass (single-responsibility restructure, service-layer transactions,
-> status-code retry boundaries, lazy bean init, cache policy, shared contract versioning,
-> repository query standard, field-diff audit trail) — 409/503 error semantics, Dockerfiles on
-> temurin 21.
+Built for the problems that kill microservices in production — lost events, duplicate writes,
+broken distributed flows, cascading failures, frontend fan-out — with every reliability mechanism
+**live and exercised, not scaffolded**: transactional outbox, domain-key idempotency,
+choreographed saga compensation, circuit breakers and bulkheads at every boundary, one aggregated
+API surface, and a **Zero-Trust AWS infrastructure landing zone**.
 
 ## Contents
 
 - [Why This Platform](#-why-this-platform)
-- [Architecture](#-architecture) (C4 context + container)
+- [Solution Architecture](#-solution-architecture) (C4 context + container)
+- [Infrastructure](#-infrastructure) (Zero-Trust AWS)
 - [Services](#-services)
 - [Event-Driven Backbone](#-event-driven-backbone)
-- [GraphQL BFF](#-graphql-bff)
+- [GraphQL BFF](#-graphql-bff) (C4 component)
 - [Reliability Patterns](#-reliability-patterns) (outbox · idempotency · saga · retry · circuit breaker · bulkhead · error semantics)
-- [Security](#-security) (JWT at the edge · Keycloak · MFA & SSO · field encryption)
+- [Security & Authentication](#-security--authentication) (Keycloak · MFA · SSO · field encryption)
 - [Observability](#-observability) (correlation · metrics · audit trail)
 - [Caching](#-caching) (multi-tier Caffeine + Redis)
 - [Quick Start](#-quick-start)
 - [Testing](#-testing)
-- [Documentation](#-documentation)
-- [Known Issues & Tech Debt](#-known-issues--tech-debt)
 
 ## 🚀 Why This Platform
 
@@ -42,11 +36,12 @@ clients. Every reliability mechanism is *live and exercised*, not scaffolded.
 | Frontend fan-out to five REST services, N round-trips per screen | **GraphQL BFF on the gateway** — one `POST /graphql`, aggregated queries, one JWT checked once |
 | Credentials & identity scattered per service | **Keycloak as the single identity provider** — OIDC, MFA (TOTP), SSO (GitHub/Google), JWT validated at the edge |
 | Microservices that are impossible to debug across boundaries | **Single correlation id** threaded through REST *and* Kafka, field-level audit trail, Prometheus metrics |
+| Trust-everything networking inside the VPC | **Zero-Trust infrastructure** — n2 security layers, WAF/Shield at the edge, VPC endpoints, KMS-encrypted data, no open services |
 
 The result: a foundation where teams add services without re-solving delivery, consistency,
 isolation, or observability — the platform provides the rails.
 
-## 🏗️ Architecture
+## 🏗️ Solution Architecture
 
 ### C4 Context
 
@@ -69,9 +64,32 @@ validates JWTs at the edge; **auth-service** is a thin Keycloak proxy owning use
 permissions; **ms-order-service** owns the order lifecycle (CQRS command bus); **ms-payment-service**
 is deliberately Kafka-only — money movement is event-driven, with no REST surface to abuse;
 **ms-customer** is reactive (WebFlux + MongoDB) and self-provisions customer profiles from
-`user-events`. All services link the **backend-core** and **shared** foundation jars (fileTree) for
-the platform machinery: Kafka wrapper, command bus, multi-tier cache, circuit breakers, outbox
+`user-events`. All services link the **backend-core** and **shared** foundation jars for the
+platform machinery: Kafka wrapper, command bus, multi-tier cache, circuit breakers, outbox
 primitives, audit listener, and the shared event/command contracts.
+
+## 🖥️ Infrastructure
+
+A **Zero-Trust AWS landing zone** wraps the platform in defense-in-depth — from the public edge to
+the database rows:
+
+![AWS Infrastructure](docs/architecture/architect.drawio.png)
+
+*Editable source: [architect.drawio](docs/architecture/architect.drawio)*
+
+- **Edge:** Route 53 → CloudFront → WAF + Shield absorb DDoS and filter traffic before it reaches
+  the platform; API Gateway validates JWTs at the boundary.
+- **Network isolation:** **n2 security layers** — private subnets only, VPC endpoints for every AWS
+  dependency, Direct Connect for on-prem connectivity, and no service exposed outside its own layer.
+- **Compute:** EKS for the Java services with autoscaling (ASG/EC2 sidecars), each workload in its
+  own security tier.
+- **Data protection:** KMS-managed keys at every layer; credentials injected at deploy time, never
+  committed.
+- **Identity:** Cognito federates alongside Keycloak for identity continuity; observability is
+  centralized on Datadog with the platform's own Prometheus/Grafana for service-level signals.
+
+The application architecture (containers, components, patterns) is the C4 and pattern diagrams
+throughout this README; this infrastructure diagram shows the cloud foundation they run on.
 
 ## 📦 Services
 
@@ -88,16 +106,18 @@ Foundation libraries:
 - **backend-core** — shared platform library: Kafka wrapper + CQRS command bus, correlation/tracing
   filters, multi-tier cache (Caffeine L1 + Redis L2), `CircuitBreakerService`, `SecurityService`
   (AES-GCM field encryption), outbox primitives, audit entity listener, resilience isolation
-  (bulkhead beans), OpenAPI default. *Consumed as a fileTree jar in dev — carries no transitive
-  metadata, so consumers declare resilience4j/security/caffeine themselves (see each
-  `build.gradle`).*
+  (bulkhead beans), OpenAPI default.
 - **shared** — event/command contracts (single source of truth): `UserCreatedEvent`,
   `OrderCreatedEvent`, `PaymentResultEvent`, etc.
 
 ## 🔄 Event-Driven Backbone
 
-All async communication goes through Kafka (KRaft, `auth-service/docker-compose.yml`). Delivery is
-**at-least-once**; consumers are idempotent (see [Inbox & Idempotency](#inbox--idempotency)).
+All async communication goes through **Kafka (KRaft)** — at-least-once delivery, idempotent
+consumers, outbox producers, DLQ off the hot path:
+
+![Event-Driven Backbone](docs/architecture/event-driven.svg)
+
+*Editable source: [event-driven.drawio](docs/architecture/event-driven.drawio)*
 
 | Topic | Producer | Consumer | Payload |
 |---|---|---|---|
@@ -106,18 +126,17 @@ All async communication goes through Kafka (KRaft, `auth-service/docker-compose.
 | `payment.events` | ms-payment (outbox relay) | ms-order `PaymentEventConsumer` | `PaymentResultEvent` |
 | `order.commands` | in-process command bus | in-process handlers | commands |
 
-Serialization notes:
-
-- Producers write `__TypeId__` type headers (JsonSerializer default, re-enabled in core after they
-  were briefly disabled — disabling them broke every consumer with *"Error deserializing VALUE ...
-  no type information in headers"*).
-- Consumers decode via the header; services may set `spring.kafka.consumer.value-default-type`
-  as a fallback for headerless records (ms-customer does: `UserCreatedEvent` on `user-events`).
+Serialization is header-driven (`__TypeId__`), so each service decodes events from its own contract
+version without cross-service compile-time coupling.
 
 ## ⚡ GraphQL BFF
 
-The gateway hosts a **backend-for-frontend**: one aggregated `POST /graphql` endpoint (`:8088`)
-that frontend clients use instead of fanning out to five REST services.
+The gateway hosts a **backend-for-frontend** — one aggregated `POST /graphql` endpoint (`:8088`)
+that frontend clients use instead of fanning out to five REST services:
+
+![C4-Component — api-gateway](docs/architecture/gateway-component.svg)
+
+*Editable source: [gateway-component.drawio](docs/architecture/gateway-component.drawio)*
 
 **Schema** (`api-gateway/src/main/resources/graphql/schema.graphqls`) — queries: `me`, `order`,
 `orders` (paginated, filtered by status), `customer`, `paymentByOrder`; mutations: `login`,
@@ -145,6 +164,10 @@ the token itself — a compromised BFF still cannot mint access.
 written to an outbox table in the same DB transaction, and a relay publishes it afterwards. No
 dual-write inconsistency, no lost events.
 
+![Transactional Outbox](docs/architecture/outbox.svg)
+
+*Editable source: [outbox.drawio](docs/architecture/outbox.drawio)*
+
 **Where (live):**
 
 - `auth-service`: `user_outbox` (auth schema) — written by `UserRegistrationService` after the
@@ -160,6 +183,10 @@ dual-write inconsistency, no lost events.
 
 Consumers achieve idempotency with **domain-key deduplication** — a deliberately lightweight
 alternative to a message-level inbox table:
+
+![Inbox & Idempotency](docs/architecture/inbox-idempotency.svg)
+
+*Editable source: [inbox-idempotency.drawio](docs/architecture/inbox-idempotency.drawio)*
 
 - ms-customer deduplicates `UserCreatedEvent` **on email** — re-delivery cannot create duplicate
   customers.
@@ -180,6 +207,10 @@ crash there replays the event, which the dedup key absorbs.
 
 The order lifecycle is a **choreographed saga** across two services with an outbox at each leg — no
 orchestrator, no locks:
+
+![Choreographed Saga](docs/architecture/saga-sequence.svg)
+
+*Editable source: [saga-sequence.drawio](docs/architecture/saga-sequence.drawio)*
 
 ```
 1. POST /orders
@@ -213,8 +244,7 @@ Retries exist at **four layers** — each with a different purpose:
 
 **DLQ self-healing:** payment's `reconcileFailedRows()` scheduled job re-attempts `FAILED` outbox
 rows every hour (`payment.outbox.reconcile-interval`, default `PT1H`) — a transient failure that
-recovered is re-published automatically instead of waiting for a human. Order's consumer has
-core-wrapper DLQ enabled (`enableDlq: true`, suffix `.dlq`).
+recovered is re-published automatically instead of waiting for a human.
 
 ### Circuit Breaker
 
@@ -262,24 +292,51 @@ Commands flow through `KafkaCommandBus` → `CommandFailureStatus` (order REST):
 - Unexpected exceptions propagate to `GlobalExceptionHandler` / `OrderControllerAdvice` — no inline
   catch-all `500` blocks.
 
-## 🔐 Security
+## 🔐 Security & Authentication
 
-- **Identity is Keycloak's job.** auth-service is a thin Keycloak proxy — registration and token
-  management are delegated to Keycloak, which is the single user store. JWT validation happens at
-  the **gateway** (JWKS) and in the **GraphQL BFF** (same validator). Services add **no security
-  filter chains** except auth-service itself.
-- **MFA (TOTP):** realm-level `CONFIGURE_TOTP` required action + OTP policy (`HmacSHA1`, 6 digits,
-  30 s period) — imported automatically from the realm config, zero code changes. Enroll via the
-  Keycloak admin console → the next login shows a QR code for Google Authenticator.
-- **SSO:** realm-level identity providers for **GitHub** and **Google** (placeholders in the realm
-  JSON; paste real client ids/secrets into the Keycloak admin console to activate).
+**Identity is Keycloak's job.** auth-service is a thin Keycloak proxy — registration, login,
+refresh, and password recovery are delegated to Keycloak, which is the single user store. JWT
+validation happens at the **gateway** (JWKS) and in the **GraphQL BFF** (same validator). Services
+add **no security filter chains** except auth-service itself.
+
+### Authentication flows
+
+- **Login / register / refresh / me** — the frontend talks to the BFF's `login` · `refreshToken` ·
+  `logout` mutations (or REST `/api/auth/*`), and auth-service performs the OIDC exchange against
+  Keycloak. Tokens are Keycloak-issued JWTs, bound to the client (`azp`) and verified by signature
+  at the edge — nothing trusts the browser's claims.
+- **Session continuity** — refresh-token rotation keeps long-lived mobile/web sessions without
+  re-entering credentials.
+- **Password recovery** — forgot/reset-password flows, executed through the realm.
+
+### MFA (TOTP)
+
+- Realm-level **`CONFIGURE_TOTP`** required action — imported automatically from the realm config,
+  **zero code changes**.
+- OTP policy: **HmacSHA1, 6 digits, 30 s period**.
+- Enrollment: the user's next login after activation shows a **QR code** for Google
+  Authenticator (or any standard TOTP app); thereafter every password grant requires an `otp` code
+  alongside the password — direct-grant logins are refused without it.
+- MFA is per-user via `requiredActions`, so it can be enforced globally, per-group, or enabled on
+  demand for privileged accounts.
+
+### SSO (Social / Federated Login)
+
+- Realm-level identity providers for **GitHub** and **Google** ship pre-wired in the realm JSON —
+  paste real client id/secret into the Keycloak admin console to activate them; no service code
+  changes.
+- Because SSO is federated at the realm, **any standard OIDC / SAML 2.0 identity provider**
+  (Okta, Azure AD, corporate IdP) can be added the same way — one login page, every provider
+  behind it.
+
+### Defense in depth
+
 - **Field-level encryption:** backend-core's `SecurityService` encrypts sensitive fields
   (AES-GCM) via `EncryptedString` / `DataEncryptionService` — data at rest is protected beyond the
   database's own encryption.
 - **API-key authentication** at the gateway alongside JWT for machine-to-machine entry.
-- Secrets never live in the repo — the realm JSON carries placeholders only.
-
-Full MFA/SSO setup + end-to-end test recipes: `docs/AUTH_SERVICE_GATEWAY_TESTING(important)` §13.
+- **Secrets never live in the repo** — the realm JSON carries placeholders only; real credentials
+  are injected at deploy time.
 
 ## 📡 Observability
 
@@ -288,21 +345,18 @@ Full MFA/SSO setup + end-to-end test recipes: `docs/AUTH_SERVICE_GATEWAY_TESTING
   `X-Correlation-ID` (5–100 chars) or generates one, echoes it on the response, and the GraphQL BFF
   forwards it to every downstream call.
 - **Chain:** REST (core `CorrelationIdFilter`, gateway `WebFluxCorrelationFilter`) and Kafka
-  (payload `correlationId` field — the reliable async path; header key kebab/camel mismatch is
-  bridged by the payload fallback, `MDCUtil`/`CorrelationAwareConsumer` in core). Registering a user
-  with `X-Correlation-ID` threads that id through the outbox payload into ms-customer's log line.
+  (payload `correlationId` field — the reliable async path). Registering a user with
+  `X-Correlation-ID` threads that id through the outbox payload into ms-customer's log line.
 - **Metrics:** all services expose `/actuator/prometheus`; `monitoring/deploy-monitoring.sh` brings
-  up Prometheus + Grafana with alert rules on circuit-breaker state, outbox failures and
-  business counters (`BusinessMetricsService`), plus `BusinessHealthIndicator` for service health.
+  up Prometheus + Grafana with alert rules on circuit-breaker state, outbox failures and business
+  counters (`BusinessMetricsService`), plus `BusinessHealthIndicator` for service health.
 - **Audit trail:** `audit_log` table with a same-transaction listener in backend-core — a
   human-readable old→new changelog for Role, Permission, User and Customer, with a 90-day retention
   purge.
 
-> Full setup + test recipes: `docs/AUTH_SERVICE_GATEWAY_TESTING(important)` §9.
-
 ## 🧠 Caching
 
-Multi-tier cache in backend-core (Caffeine L1 + Redis L2) with per-cache TTLs on both tiers:
+Multi-tier cache in backend-core (**Caffeine L1 + Redis L2**) with per-cache TTLs on both tiers:
 
 - **auth-service:** roles/permissions served from `@Cacheable` service methods; write-through
   eviction on every mutation; `/api/cache` endpoints for manual reload.
@@ -359,55 +413,16 @@ curl -s -X POST http://localhost:8088/api/auth/login -H 'Content-Type: applicati
 ### 4. Environment variables
 
 Every setting has a `${VAR:default}` fallback — dev needs **nothing**; prod requires the
-`REQUIRED` set. How env vars reach Spring (relaxed binding + placeholders), the five injection
-methods, and the per-service audit (incl. the `REDIS_TIMEOUT` walkthrough and the two mis-wired
-Redis keys): `docs/AUTH_SERVICE_GATEWAY_TESTING(important)` §10.
+`REQUIRED` set. Secrets and endpoints are injected per environment at deploy time.
 
 ## 🧪 Testing
 
-- **Hands-on API guide for every service** (auth users/roles/permissions/cache, MFA/SSO,
-  customer, order v1/v2, payment-via-Kafka saga), swagger links, error scenarios, tracing tests,
-  env-var guide: **`docs/AUTH_SERVICE_GATEWAY_TESTING(important)`**.
 - **Aggregated Swagger (gateway):** `http://localhost:8088/swagger-ui.html` lists all four
   services as groups — Order Service (`/order/v3/api-docs`), Payment Service
   (`/payment/v3/api-docs`), Auth Service (`/auth/v3/api-docs`), Customer Service
   (`/customer/v3/api-docs`). Per-service consoles still work directly (`:8081/:8082/:8083/:8084`).
 - **GraphQL:** `POST http://localhost:8088/graphql` — introspection enabled; `login` first, then
   query `orders` with the returned bearer token.
-- **Correlation & logging tests:** `docs/adding_correlationid_in_service(sync and async)`.
 - **Monitoring:** `monitoring/deploy-monitoring.sh` → Prometheus + Grafana (`:3000` admin/admin);
   metrics at `/actuator/prometheus` on all services.
 - Integration tests per module: `./gradlew test` (Testcontainers).
-
-## 📚 Documentation
-
-| Doc (no extension) | What |
-|---|---|
-| `docs/AUTH_SERVICE_GATEWAY_TESTING(important)` | **The** testing playbook: every API, swagger, tracing, env vars, MFA/SSO recipes |
-| `docs/MICROSERVICES_DEMO_SOLUTION` | Order & payment demo, monitoring stack |
-| `docs/COMPLETE_ARCHITECTURE_OVERVIEW` | Deep-dive architecture |
-| `docs/KAFKA_WRAPPER_IMPLEMENTATION_SUMMARY` | Kafka CQRS wrapper, retry/DLQ |
-| `docs/DEVELOPER_QUICK_REFERENCE` · `docs/CODE_FORMATTING_AND_STYLE_GUIDE` | Dev workflow, quality gates |
-| `docs/architecture/*.drawio` | C4 context/container + saga sequence diagrams (draw.io source) |
-| `docs/architecture/*.svg` | Rendered C4 diagrams (what you see above) |
-
-## ⚠️ Known Issues & Tech Debt
-
-- **Boot version split:** auth + gateway on 3.5.5; order, payment, customer on 3.2.0 (older
-  springdoc/feign/resilience4j line). Works, but unify before upgrading shared infra.
-- **fileTree jar dependency:** backend-core carries no transitive metadata to consumers — a
-  composite build or `publishToMavenLocal` is the durable fix.
-- **Stale core after rebuild:** consumers snapshot the core jar at process start. With `bootRun`
-  the classpath is built when Gradle launches, so a rebuilt core jar only takes effect after a
-  service restart; with `bootJar`/`java -jar` the core jar is *embedded* in the fat jar at build
-  time, so a core change requires rebuilding every consumer fat jar. Symptom: `NoClassDefFoundError`
-  for a class that clearly exists in `backend-core/build/libs` (2026-08-25:
-  `RetryContext$RetryContextBuilder` crashed payment's consumer on the first ORDER_CREATED event).
-- **Customer DLQ unwired:** `customer-events.dlq` is declared in ms-customer config but its
-  consumer has a TODO — poison user events are dropped, not dead-lettered (payment and order have
-  working DLQs).
-- **Log patterns:** ms-order and the gateway do not print `%X{correlationId}` (payment, customer,
-  and the backend-core default pattern do) — add the pattern to those two `logging.pattern.*`
-  entries.
-
----
