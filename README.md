@@ -45,7 +45,7 @@ isolation, or observability — the platform provides the rails.
 
 ### C4 Context
 
-![C4-Context](docs/architecture/c4-context.svg)
+![C4-Context](docs/architecture/c4-context.png)
 
 *Editable source: [c4-context.drawio](docs/architecture/c4-context.drawio)*
 
@@ -55,7 +55,7 @@ the event backbone (Kafka), three relational stores (PostgreSQL per service), cu
 
 ### C4 Container
 
-![C4-Container](docs/architecture/c4-container.svg)
+![C4-Container](docs/architecture/c4-container.png)
 
 *Editable source: [c4-container.drawio](docs/architecture/c4-container.drawio)*
 
@@ -115,7 +115,7 @@ Foundation libraries:
 All async communication goes through **Kafka (KRaft)** — at-least-once delivery, idempotent
 consumers, outbox producers, DLQ off the hot path:
 
-![Event-Driven Backbone](docs/architecture/event-driven.svg)
+![Event-Driven Backbone](docs/architecture/event-driven.png)
 
 *Editable source: [event-driven.drawio](docs/architecture/event-driven.drawio)*
 
@@ -134,7 +134,7 @@ version without cross-service compile-time coupling.
 The gateway hosts a **backend-for-frontend** — one aggregated `POST /graphql` endpoint (`:8088`)
 that frontend clients use instead of fanning out to five REST services:
 
-![C4-Component — api-gateway](docs/architecture/gateway-component.svg)
+![C4-Component — api-gateway](docs/architecture/gateway-component.png)
 
 *Editable source: [gateway-component.drawio](docs/architecture/gateway-component.drawio)*
 
@@ -164,7 +164,7 @@ the token itself — a compromised BFF still cannot mint access.
 written to an outbox table in the same DB transaction, and a relay publishes it afterwards. No
 dual-write inconsistency, no lost events.
 
-![Transactional Outbox](docs/architecture/outbox.svg)
+![Transactional Outbox](docs/architecture/outbox.png)
 
 *Editable source: [outbox.drawio](docs/architecture/outbox.drawio)*
 
@@ -184,7 +184,7 @@ dual-write inconsistency, no lost events.
 Consumers achieve idempotency with **domain-key deduplication** — a deliberately lightweight
 alternative to a message-level inbox table:
 
-![Inbox & Idempotency](docs/architecture/inbox-idempotency.svg)
+![Inbox & Idempotency](docs/architecture/inbox-idempotency.png)
 
 *Editable source: [inbox-idempotency.drawio](docs/architecture/inbox-idempotency.drawio)*
 
@@ -208,7 +208,7 @@ crash there replays the event, which the dedup key absorbs.
 The order lifecycle is a **choreographed saga** across two services with an outbox at each leg — no
 orchestrator, no locks:
 
-![Choreographed Saga](docs/architecture/saga-sequence.svg)
+![Choreographed Saga](docs/architecture/saga-sequence.png)
 
 *Editable source: [saga-sequence.drawio](docs/architecture/saga-sequence.drawio)*
 
